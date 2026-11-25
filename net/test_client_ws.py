@@ -184,7 +184,7 @@ def main():
                 testo.append(p.communicate()[0] or "")
         log = "\n".join(testo)
 
-    if ok and "riagganciato al relay" not in log:
+    if ok and "reconnected to the relay" not in log:
         ok = False
         print("FALLITO: nessun log di riaggancio: il PASSO 2 e' passato per "
               "un'altra ragione e la prova non vale")

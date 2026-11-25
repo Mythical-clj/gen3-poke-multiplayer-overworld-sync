@@ -424,7 +424,14 @@ class Bridge:
         # non combaciano fra i due PC, il club non puo' funzionare: e' cio'
         # che e' successo il 2026-08-20, quando la correzione era su un lato
         # solo e nessuno poteva accorgersene se non dai log affiancati.
-        self.log("client build 2026-11-25: co-op battle diagnostics on (lines tagged [coop ])")
+        self.log("client build 2026-11-26: co-op diagnostics, timestamps, per-interval rates, battle timeline")
+        try:
+            import platform
+            self.log("run info: python %s | %s | transport %s | room %s | peer %d | relay %s"
+                     % (platform.python_version(), platform.platform(), self.transport,
+                        getattr(args, "room", "?"), self.peer_id, getattr(args, "relay", None) or "-"))
+        except Exception:
+            pass
         self.log("club version %d | file fingerprint %08X  (must match your friend's)" % (VERSIONE_CLUB, IMPRONTA_SORGENTI))
         if self.netem.active:
             self.log('simulator active: delay %d ms, jitter %d ms, loss %g%%'
@@ -433,7 +440,10 @@ class Bridge:
             self.log('NOW start mGBA: the Lua socket.connect is blocking and the emulator freezes until it finds this port open')
 
     def log(self, msg):
-        print("[client %d] %s" % (self.peer_id, msg), flush=True)
+        t0 = getattr(self, "_t_start", None)
+        if t0 is None:
+            t0 = self._t_start = time.time()
+        print("[client %d +%ds] %s" % (self.peer_id, int(time.time() - t0), msg), flush=True)
 
     # --- verso il relay ---------------------------------------------------
 
@@ -1147,6 +1157,14 @@ class Bridge:
         if not event:
             return
         kind = event[0] & 0x0F
+        # Every kind is counted (walking too), with when it was last seen:
+        # this is what shows a stall or a rate drop between two status blocks.
+        allc = getattr(self, "all_counts", None)
+        if allc is None:
+            allc = self.all_counts = {}
+            self.last_seen = {}
+        allc[(way, kind)] = allc.get((way, kind), 0) + 1
+        self.last_seen[way] = time.time()
         if kind not in self.COOP_NAMES:
             return
         if not hasattr(self, "coop_counts"):
@@ -1184,6 +1202,7 @@ class Bridge:
             k = (way, who, "start", event[3])
             if k not in det:
                 det[k] = True
+                self.battle_t = {"start": time.time(), "session": event[3], "way": way, "choices": 0}
                 if event[1] == 1:
                     trainer = event[6] | (event[7] << 8)
                     self.log("[coop ] battle start %s: session %d, trainer id %d, from %s"
@@ -1195,11 +1214,24 @@ class Bridge:
             k = (way, who, "ack", event[3], event[1])
             if k not in det:
                 det[k] = True
-                self.log("[coop ] battle %s %s: session %d, from %s"
-                         % ("START ACCEPTED" if event[1] else "sync", way, event[3], who))
+                bt = getattr(self, "battle_t", None)
+                took = ""
+                if bt and bt.get("session") == event[3] and event[1]:
+                    took = ", %.0f ms after the start message" % ((time.time() - bt["start"]) * 1000)
+                    bt["accepted"] = time.time()
+                self.log("[coop ] battle %s %s: session %d, from %s%s"
+                         % ("START ACCEPTED" if event[1] else "sync", way, event[3], who, took))
         elif kind == 14:    # choice
             k = (way, who, "choice")
             det[k] = det.get(k, 0) + 1
+            bt = getattr(self, "battle_t", None)
+            if bt is not None:
+                prev = bt.get("last_choice")
+                now = time.time()
+                bt["last_choice"] = now
+                bt["choices"] += 1
+                if prev is not None and now - prev > 20:
+                    self.log("[coop ] long gap between choices: %.0f s (%s, from %s)" % (now - prev, way, who))
             if det[k] in (1, 10, 50, 200):
                 self.log("[coop ] battle choice #%d %s (from %s)" % (det[k], way, who))
         elif kind == 15:    # social: [1]=sub type
@@ -1207,6 +1239,30 @@ class Bridge:
             if k not in det:
                 det[k] = True
                 self.log("[coop ] social event type %d %s (from %s)" % (event[1], way, who))
+
+    def interval_summary(self):
+        """Events per second since the previous status block, by kind, in
+        both directions, plus how long each direction has been silent."""
+        allc = getattr(self, "all_counts", {})
+        prev = getattr(self, "_prev_counts", {})
+        now = time.time()
+        dt = max(now - getattr(self, "_prev_time", now - 1), 0.001)
+        names = {1: "step", 2: "sync", 3: "turn", 4: "leave"}
+        names.update(self.COOP_NAMES)
+        parts = []
+        for way, label in (("from GBA", "out"), ("to GBA", "in")):
+            bits = []
+            for kind in sorted(names):
+                d = allc.get((way, kind), 0) - prev.get((way, kind), 0)
+                if d:
+                    bits.append("%s %.1f/s" % (names[kind], d / dt))
+            parts.append("%s: %s" % (label, ", ".join(bits) or "nothing"))
+            seen = getattr(self, "last_seen", {}).get(way)
+            if seen is not None and now - seen > 10:
+                parts[-1] += " (silent for %d s)" % int(now - seen)
+        self._prev_counts = dict(allc)
+        self._prev_time = now
+        return " | ".join(parts)
 
     def coop_summary(self):
         counts = getattr(self, "coop_counts", {})
@@ -1829,13 +1885,13 @@ class Bridge:
         if self.rtts:
             lo, hi = min(self.rtts), max(self.rtts)
             avg = sum(self.rtts) / len(self.rtts)
-            rtt = "RTT min %.1f / medio %.1f / max %.1f ms" % (lo, avg, hi)
+            rtt = "RTT min %.1f / avg %.1f / max %.1f ms" % (lo, avg, hi)
         else:
-            rtt = "RTT non ancora misurato"
+            rtt = "RTT not measured yet"
         self.rtts = []
 
         if self.map_key is None:
-            where = "mappa non ancora nota"
+            where = "map not known yet"
             # Il silenzio del 2026-08-02 sera: due GBA sani, payload seminato,
             # e un'ora persa perche' i client erano stati lanciati col gioco
             # sul TITOLO - dove il payload dorme per progetto. La riga sotto
@@ -1845,7 +1901,7 @@ class Bridge:
                 self.log('      the GBA has not said which map it is on yet: are you WALKING IN THE OVERWORLD? On the title screen and in menus the payload stays quiet on purpose.')
         else:
             self._no_map_prints = 0
-            where = "io su mappa %d.%d" % (self.map_key >> 8,
+            where = "me on map %d.%d" % (self.map_key >> 8,
                                            self.map_key & 0xFF)
 
         self.log('%s | sent %d | received %d | dropped %d dup + %d late | healed %d (+%d wide) | lost by simulator %d | VIA %d | presence %d | flaps %d | room %d | %s'
@@ -1875,6 +1931,15 @@ class Bridge:
         # slot, e quanti eventi sono rimasti fuori per stanza piena. Se
         # `senza avatar` sale con 3 o meno amici, l'assegnazione e' rotta.
         self.log("  co-op data: %s" % self.coop_summary())
+        self.log("  last interval: %s" % self.interval_summary())
+        bt = getattr(self, "battle_t", None)
+        if bt is not None and bt.get("session") is not None:
+            self.log("  last co-op battle: session %d, %s, %s, %d choices seen"
+                     % (bt["session"],
+                        "accepted" if "accepted" in bt else "NOT ACCEPTED yet",
+                        "%d s ago" % int(time.time() - bt["start"]), bt["choices"]))
+            if "accepted" not in bt and time.time() - bt["start"] > 25:
+                self.log("      !!! the battle start was never accepted: the other game did not answer (check its log)")
 
         if self.peer_slots or self.slot_scartati:
             assegnati = ", ".join("friend %d -> slot %d" % (p, s)
