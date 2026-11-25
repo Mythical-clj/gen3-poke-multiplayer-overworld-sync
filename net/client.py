@@ -424,6 +424,7 @@ class Bridge:
         # non combaciano fra i due PC, il club non puo' funzionare: e' cio'
         # che e' successo il 2026-08-20, quando la correzione era su un lato
         # solo e nessuno poteva accorgersene se non dai log affiancati.
+        self.log("client build 2026-11-25: co-op battle diagnostics on (lines tagged [coop ])")
         self.log("club version %d | file fingerprint %08X  (must match your friend's)" % (VERSIONE_CLUB, IMPRONTA_SORGENTI))
         if self.netem.active:
             self.log('simulator active: delay %d ms, jitter %d ms, loss %g%%'
@@ -1154,6 +1155,58 @@ class Bridge:
         self.coop_counts[key] = self.coop_counts.get(key, 0) + 1
         if self.coop_counts[key] == 1:
             self.log("[coop ] first %s event %s" % (self.COOP_NAMES[kind], way))
+        self._coop_detail(way, kind, event)
+
+    def _coop_detail(self, way, kind, event):
+        """One line per interesting moment: a team tag changing, a battle
+        request starting, its answer, the first choices."""
+        if len(event) < EVENT_SIZE:
+            return
+        det = getattr(self, "coop_detail", None)
+        if det is None:
+            det = self.coop_detail = {}
+        who = "me" if way == "from GBA" else "slot %d" % ((event[0] >> 4) & 3)
+        if kind == 10:      # team chunk: [1]=index, [2]=team tag
+            tag = event[2]
+            k = (way, who, "tag")
+            seen = det.setdefault(k, {"tag": None, "idx": set()})
+            if seen["tag"] != tag:
+                if seen["tag"] is not None:
+                    self.log("[coop ] team of %s changed (tag %02X -> %02X)" % (who, seen["tag"], tag))
+                seen["tag"] = tag
+                seen["idx"] = set()
+            if event[1] not in seen["idx"]:
+                seen["idx"].add(event[1])
+                if len(seen["idx"]) % 20 == 0:
+                    self.log("[coop ] team of %s: %d distinct chunks seen (tag %02X, %s)"
+                             % (who, len(seen["idx"]), tag, way))
+        elif kind == 12:    # battle start: [1]=part, [3]=session
+            k = (way, who, "start", event[3])
+            if k not in det:
+                det[k] = True
+                if event[1] == 1:
+                    trainer = event[6] | (event[7] << 8)
+                    self.log("[coop ] battle start %s: session %d, trainer id %d, from %s"
+                             % (way, event[3], trainer, who))
+                else:
+                    self.log("[coop ] battle start (part %d) %s: session %d, from %s"
+                             % (event[1], way, event[3], who))
+        elif kind == 13:    # battle ack: [1]=start accepted, [2]=choices acked
+            k = (way, who, "ack", event[3], event[1])
+            if k not in det:
+                det[k] = True
+                self.log("[coop ] battle %s %s: session %d, from %s"
+                         % ("START ACCEPTED" if event[1] else "sync", way, event[3], who))
+        elif kind == 14:    # choice
+            k = (way, who, "choice")
+            det[k] = det.get(k, 0) + 1
+            if det[k] in (1, 10, 50, 200):
+                self.log("[coop ] battle choice #%d %s (from %s)" % (det[k], way, who))
+        elif kind == 15:    # social: [1]=sub type
+            k = (way, who, "social", event[1])
+            if k not in det:
+                det[k] = True
+                self.log("[coop ] social event type %d %s (from %s)" % (event[1], way, who))
 
     def coop_summary(self):
         counts = getattr(self, "coop_counts", {})
