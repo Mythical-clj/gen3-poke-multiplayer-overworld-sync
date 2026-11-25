@@ -1,0 +1,35 @@
+name: Build Windows exe
+on:
+  workflow_dispatch:
+  push:
+    paths: ["net/**", ".github/workflows/build-exe.yml"]
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyinstaller pyusb libusb-package
+      - name: Build
+        shell: bash
+        run: |
+          cd net
+          ADD=""
+          for f in client.py relay.py relay_ws.py mb_multi.py pannello.py pannello.html mappa.html; do
+            [ -f "$f" ] && ADD="$ADD --add-data $f;."
+          done
+          pyinstaller --onefile --console --name gblink \
+            $ADD --add-data "img;img" --add-data "../web/fonts;fonts" \
+            --collect-binaries libusb_package --collect-submodules usb \
+            --paths . gblink_exe.py
+      - name: Package
+        shell: bash
+        run: |
+          mkdir out && cp net/dist/gblink.exe out/
+          cd out && 7z a ../gblink-client-windows.zip gblink.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gblink-windows
+          path: gblink-client-windows.zip
