@@ -132,14 +132,14 @@ class WsRelay:
             # aspetto nel log - il client stampa comunque che aspetta il gioco
             # - e chi prova a casa non sa distinguere un relay irraggiungibile
             # da un emulatore non ancora avviato.
-            self.log("[ws   ] collegato al relay %s (%s)"
-                     % (self.url, "TLS" if self.tls else "in chiaro"))
+            self.log('[ws   ] connected to relay %s (%s)'
+                     % (self.url, "TLS" if self.tls else 'plain'))
             return True
         except Exception as exc:
             self.errori += 1
             self.close(quiet=True)
             self.next_try = time.monotonic() + self.RETRY_S
-            self.log("[ws   ] collegamento a %s fallito: %s" % (self.url, exc))
+            self.log('[ws   ] connection to %s failed: %s' % (self.url, exc))
             return False
 
     def ensure(self, now=None):
@@ -151,7 +151,7 @@ class WsRelay:
         if self.connect():
             self.riagganci += 1
             if self.riagganci > 1:
-                self.log("[ws   ] riagganciato al relay (%d volta/e)" % self.riagganci)
+                self.log('[ws   ] reconnected to the relay (%d time(s))' % self.riagganci)
             return True
         return False
 
@@ -200,7 +200,7 @@ class WsRelay:
             self._send_frame(OP_BIN, datagram)
             return True
         except OSError as exc:
-            self.log("[ws   ] invio fallito (%s): riaggancio" % exc)
+            self.log('[ws   ] send failed (%s): reconnecting' % exc)
             self.close(quiet=True)
             self.next_try = time.monotonic() + self.RETRY_S
             return False
@@ -224,7 +224,7 @@ class WsRelay:
                             pass
                         continue
                     if op == OP_CLOSE:
-                        self.log("[ws   ] il relay ha chiuso il canale: riaggancio")
+                        self.log('[ws   ] the relay closed the channel: reconnecting')
                         self.close(quiet=True)
                         self.next_try = time.monotonic() + self.RETRY_S
                         return None
@@ -234,19 +234,19 @@ class WsRelay:
                 except (BlockingIOError, ssl.SSLWantReadError):
                     return None
                 except OSError as exc:
-                    self.log("[ws   ] lettura fallita (%s): riaggancio" % exc)
+                    self.log('[ws   ] read failed (%s): reconnecting' % exc)
                     self.close(quiet=True)
                     self.next_try = time.monotonic() + self.RETRY_S
                     return None
                 if not chunk:
-                    self.log("[ws   ] canale chiuso dal server: riaggancio")
+                    self.log('[ws   ] channel closed by the server: reconnecting')
                     self.close(quiet=True)
                     self.next_try = time.monotonic() + self.RETRY_S
                     return None
                 self.buf += chunk
         except Exception as exc:
             self.errori += 1
-            self.log("[ws   ] errore di lettura: %s" % exc)
+            self.log('[ws   ] read error: %s' % exc)
             self.close(quiet=True)
             self.next_try = time.monotonic() + self.RETRY_S
             return None

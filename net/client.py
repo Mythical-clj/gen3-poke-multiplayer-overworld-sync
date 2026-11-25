@@ -409,30 +409,27 @@ class Bridge:
         dove = (args.relay if self.ws is not None
                 else "%s:%d" % (self.relay_addr[0], self.relay_addr[1]))
         if self.transport == "tcp":
-            self.log("in ascolto su TCP 127.0.0.1:%d, relay %s, peer %d, stanza %d"
+            self.log('listening on TCP 127.0.0.1:%d, relay %s, peer %d, room %d'
                      % (args.listen, dove, self.peer_id, self.room))
         else:
-            self.log("transport USB (Celio), relay %s, peer %d, stanza %d"
+            self.log('USB transport (Celio), relay %s, peer %d, room %d'
                      % (dove, self.peer_id, self.room))
         # IL PEER-ID DEVE ESSERE UNICO, e sbagliarlo non da' nessun errore.
         # Due client con lo stesso peer-id si espellono a vicenda dalla stanza
         # a ogni battito (relay.py, move_to_room: stesso peer_id da un altro
         # indirizzo = il vecchio viene tolto), quindi il sintomo e' "non ci
         # vediamo mai", identico a mille altre cause. Meglio dirlo prima.
-        self.log("peer-id %d - DEVE essere diverso da quello di OGNI amico "
-                 "nella stanza, o vi buttate fuori a vicenda" % self.peer_id)
+        self.log("peer-id %d - must be DIFFERENT from EVERY friend's in the room, or you will kick each other out" % self.peer_id)
         # I DUE NUMERI DA CONFRONTARE A VOCE prima di provare il club. Se
         # non combaciano fra i due PC, il club non puo' funzionare: e' cio'
         # che e' successo il 2026-08-20, quando la correzione era su un lato
         # solo e nessuno poteva accorgersene se non dai log affiancati.
-        self.log("versione club %d | impronta dei file %08X  (deve combaciare "
-                 "con quella dell'amico)" % (VERSIONE_CLUB, IMPRONTA_SORGENTI))
+        self.log("club version %d | file fingerprint %08X  (must match your friend's)" % (VERSIONE_CLUB, IMPRONTA_SORGENTI))
         if self.netem.active:
-            self.log("simulatore attivo: ritardo %d ms, jitter %d ms, perdita %g%%"
+            self.log('simulator active: delay %d ms, jitter %d ms, loss %g%%'
                      % (args.delay, args.jitter, args.loss))
         if self.transport == "tcp":
-            self.log("ORA avvia mGBA: socket.connect del Lua e' bloccante e "
-                     "l'emulatore si ferma finche' non trova questa porta aperta")
+            self.log('NOW start mGBA: the Lua socket.connect is blocking and the emulator freezes until it finds this port open')
 
     def log(self, msg):
         print("[client %d] %s" % (self.peer_id, msg), flush=True)
@@ -452,7 +449,7 @@ class Bridge:
             else:
                 self.udp.sendto(datagram, self.relay_addr)
         except OSError as exc:
-            self.log("invio al relay fallito: %s" % exc)
+            self.log('send to the relay failed: %s' % exc)
 
     def next_seq(self):
         self.out_seq = (self.out_seq + 1) & 0xFF
@@ -463,8 +460,7 @@ class Bridge:
         # tornare a scrivergli (vedi gba_muto nel costruttore).
         if self.gba_muto:
             self.gba_muto = False
-            self.log("[club ] il GBA e' tornato a parlare (%d frame trattenuti "
-                     "nel frattempo): riprendo a scrivergli"
+            self.log('[club ] the GBA is talking again (%d frames held back meanwhile): resuming writes'
                      % self.gba_muto_scartati)
             self.gba_muto_scartati = 0
 
@@ -472,6 +468,7 @@ class Bridge:
         # tale: il payload dell'amico non saprebbe che farsene (e peggio,
         # tenterebbe di interpretarlo). Diventa l'avvio della sessione club.
         # Arriva in tre copie: club_start e' idempotente.
+        self._conta_coop("from GBA", event)
         if event and event[0] == EV_CARD:
             self._pezzo_scheda("io", event)
         if event and event[0] == EV_PARTY:
@@ -497,9 +494,7 @@ class Bridge:
             if time.monotonic() < self.club_riaggancio_dopo:
                 self.club_stantii += 1
                 if self.club_stantii == 1:
-                    self.log("[club ] EVENT_CLUB stantio del club appena "
-                             "chiuso: ignorato (il payload li accoda a ogni "
-                             "riapertura del link)")
+                    self.log('[club ] stale EVENT_CLUB from the club that just closed: ignored (the payload queues them at every link reopen)')
                 return
             self.club_start("il TUO GBA e' entrato al Cable Club",
                             dal_gba=True)
@@ -514,7 +509,7 @@ class Bridge:
             if event[1] != self.stato_io:
                 self.stato_io = event[1]
                 self.stato_cambi += 1
-                self.log("[stato ] io -> %s  (dal GBA, #%d)"
+                self.log('[state] me -> %s  (from the GBA, #%d)'
                          % (nome_stato(event[1]), event[3]))
         self.pos_io = self._aggiorna_pos(self.pos_io, event)
 
@@ -614,8 +609,7 @@ class Bridge:
         self.rifiuti_numero += 1
         if not self.preso_da or now - self.preso_ultimo > 3.0:
             self.preso_da = now
-            self.log("il relay dice che il peer %d e' gia' in uso nella stanza %d: "
-                     "se e' un rientro passa da solo in qualche secondo"
+            self.log('the relay says peer %d is already in use in room %d: if this is a rejoin it clears by itself in a few seconds'
                      % (self.peer_id, self.room))
         self.preso_ultimo = now
         if now - self.preso_da < 6.0:
@@ -628,8 +622,7 @@ class Bridge:
         self.peer_id = nuovo
         self.numeri_cambiati += 1
         self.preso_da = 0.0
-        self.log("!!! il peer %d e' USATO da un altro %s nella stanza %d: passo al "
-                 "peer %d e rientro (per tenerlo fisso la prossima volta: --peer-id %d)"
+        self.log('!!! peer %d is USED by another %s in room %d: switching to peer %d and rejoining (to keep it fixed next time: --peer-id %d)'
                  % (vecchio, chi, self.room, nuovo, nuovo))
         self.send_udp(pack(T_HELLO, self.peer_id, self.room, 0, self.codice_b),
                       now, simulate=False)
@@ -699,9 +692,9 @@ class Bridge:
             # tempo lo passa il test: cioe' proprio dove doveva parlare.
             self.peer_andato_at[peer_id] = time.monotonic()
             if room is None:
-                self.log("peer %d se n'e' andato (mai visto un suo evento)" % peer_id)
+                self.log('peer %d left (never saw an event from them)' % peer_id)
                 return
-            self.log("peer %d se n'e' andato (era su mappa %d.%d): despawn"
+            self.log('peer %d left (was on map %d.%d): despawn'
                      % (peer_id, room >> 8, room & 0xFF))
             self.leaves += 1
             if slot is not None:
@@ -800,16 +793,13 @@ class Bridge:
                 if andato is not None and (time.monotonic() - andato) < self.FLAP_S:
                     self.flap += 1
                     if self.flap == 1 or self.flap % 10 == 0:
-                        self.log("amico %d VA E VIENE (n. %d): sparisce e torna in "
-                                 "meno di %ds. Di solito e' il suo adattatore "
-                                 "scollegato, o la sua pagina che non arriva al relay."
+                        self.log('friend %d KEEPS DROPPING (#%d): disappears and returns within %ds. Usually their adapter is unplugged, or their page cannot reach the relay.'
                                  % (peer_id, self.flap, int(self.FLAP_S)))
                 else:
-                    self.log("amico %d -> avatar slot %d" % (peer_id, slot))
+                    self.log('friend %d -> avatar slot %d' % (peer_id, slot))
             elif peer_id not in self.slot_pieni_avvisati:
                 self.slot_pieni_avvisati.add(peer_id)
-                self.log("amico %d SENZA avatar: 3 amici gia' a schermo "
-                         "(resta sulla mappa live)" % peer_id)
+                self.log('friend %d has NO avatar: 3 friends already on screen (stays on the live map)' % peer_id)
         return slot
 
     def heal_and_deliver(self, peer_id, event):
@@ -827,7 +817,7 @@ class Bridge:
             # e non si ricuciono.
             if kind == EV_STATUS and self.stato_amici.get(peer_id) != event[1]:
                 self.stato_amici[peer_id] = event[1]
-                self.log("[stato ] amico %d -> %s  (dalla rete, verso il GBA)"
+                self.log('[state] friend %d -> %s  (from the network, to the GBA)'
                          % (peer_id, nome_stato(event[1])))
             if kind == EV_CARD:
                 self._pezzo_scheda(peer_id, event)
@@ -1009,8 +999,7 @@ class Bridge:
         if m is None:
             self.chat_illeggibili += 1
             if self.chat_illeggibili == 1:
-                self.log("[chat ] messaggio di chat illeggibile dal peer %d "
-                         "(versioni diverse?): ignorato" % peer_id)
+                self.log('[chat ] unreadable chat message from peer %d (different versions?): ignored' % peer_id)
             return
         if m["nome"]:
             self.chat_nomi[peer_id] = m["nome"]
@@ -1074,8 +1063,8 @@ class Bridge:
         s[2] = squadra
         self.pos_sporche = True
         if squadra:
-            self.log("[squadra] %s: %s" % (
-                "la tua" if chi == "io" else "amico %s" % chi,
+            self.log('[team ] %s: %s' % (
+                'your' if chi == "io" else 'friend %s' % chi,
                 ", ".join(("uovo" if m["uovo"] else "#%d lv%d" % (m["specie"], m["lv"]))
                           + ("*" if m["cromatico"] else "") + (" (ko)" if m["ko"] else "")
                           for m in squadra)))
@@ -1095,8 +1084,8 @@ class Bridge:
             return
         d[2][i] = nuovo
         self.pos_sporche = True
-        self.log("[squadra] %s, Pokemon %d: lv%d PS %d/%d stato %s strumento %d mosse %s natura %s sesso %s"
-                 % ("tuo" if chi == "io" else "amico %s" % chi, i + 1, nuovo["lv"], nuovo["ps"],
+        self.log('[team ] %s, Pokemon %d: lv%d HP %d/%d status %s item %d moves %s nature %s gender %s'
+                 % ('yours' if chi == "io" else 'friend %s' % chi, i + 1, nuovo["lv"], nuovo["ps"],
                     nuovo["psMax"], nuovo["stato"] or "-", nuovo["strumento"],
                     "/".join(str(m) for m in nuovo["mosse"]), nuovo["natura"], nuovo["sesso"] or "-"))
 
@@ -1146,7 +1135,37 @@ class Bridge:
             self.pos_sporche = True
             if not getattr(self, "_pos_avvisato", False):
                 self._pos_avvisato = True
-                self.log("[mappa] non riesco a scrivere %s: %s" % (self.pos_path, exc))
+                self.log('[map  ] cannot write %s: %s' % (self.pos_path, exc))
+
+    COOP_NAMES = {10: "team chunks", 11: "exp", 12: "battle start",
+                  13: "battle acks", 14: "battle choices", 15: "social"}
+
+    def _conta_coop(self, way, event):
+        """Counts the co-op battle / social events (kinds 10-15) so the log
+        shows whether team data and battle requests really cross the wire."""
+        if not event:
+            return
+        kind = event[0] & 0x0F
+        if kind not in self.COOP_NAMES:
+            return
+        if not hasattr(self, "coop_counts"):
+            self.coop_counts = {}
+        key = (way, kind)
+        self.coop_counts[key] = self.coop_counts.get(key, 0) + 1
+        if self.coop_counts[key] == 1:
+            self.log("[coop ] first %s event %s" % (self.COOP_NAMES[kind], way))
+
+    def coop_summary(self):
+        counts = getattr(self, "coop_counts", {})
+        if not counts:
+            return "none yet"
+        parts = []
+        for kind in sorted(self.COOP_NAMES):
+            out = counts.get(("from GBA", kind), 0)
+            back = counts.get(("to GBA", kind), 0)
+            if out or back:
+                parts.append("%s out %d / in %d" % (self.COOP_NAMES[kind], out, back))
+        return ", ".join(parts)
 
     def deliver(self, event, slot=0):
         # Niente slot = niente avatar sul GBA: l'evento si ferma qui (la
@@ -1154,6 +1173,7 @@ class Bridge:
         if slot is None:
             self.slot_scartati += 1
             return
+        self._conta_coop("to GBA", event)
         copies = 1
         if event[0] in self.DUP_TYPES:
             while copies < self.wire_copies and self._copy_allowed():
@@ -1198,7 +1218,7 @@ class Bridge:
                 self.log("[club ] -> device: %s" % label)
             except SystemExit as exc:
                 self.errori += 1
-                self.log("[club ] comando al device FALLITO (%s)" % exc)
+                self.log('[club ] command to the device FAILED (%s)' % exc)
 
         def send_block(self, block64):
             # Il contenuto va nel log PRIMA dell'invio: se il canale muore
@@ -1239,9 +1259,9 @@ class Bridge:
         peer = int(peer or 0)
         self.club_acc.scelto = peer
         if peer:
-            self.log("[club ] al club con il peer %d (scelto da te)" % peer)
+            self.log('[club ] at the club with peer %d (chosen by you)' % peer)
         else:
-            self.log("[club ] al club: scelta automatica")
+            self.log('[club ] at the club: automatic choice')
         if self.club is not None:
             if self.club_acc.partner is None and peer:
                 self.club_acc.partner = peer
@@ -1267,8 +1287,7 @@ class Bridge:
             # pilotare. Lo si dice una volta e basta.
             if self.club_sessions == 0:
                 self.club_sessions = -1
-                self.log("[club ] %s - ma il club integrato vale solo sul GBA "
-                         "fisico: in emulatore si ignora" % motivo)
+                self.log('[club ] %s - but the built-in club only works on a real GBA: ignored in an emulator' % motivo)
             return
 
         from club_link import ClubSession, ruolo_master
@@ -1281,8 +1300,7 @@ class Bridge:
 
         self.log("=" * 60)
         self.log("[club ] %s" % motivo)
-        self.log("[club ] passo il Pico in modo LINK (Celio) e faccio io da "
-                 "ponte: NON toccare niente, gioca pure")
+        self.log('[club ] switching the Pico to LINK mode (Celio) and bridging: do NOT touch anything, just play')
         # La sessione nasce PRIMA del giro sul Pico: cosi' l'ENTER parte
         # subito con l'epoca giusta e l'amico non aspetta i ~2 s del
         # Cancel/SetMode. I suoi pacchetti arrivati nel frattempo finiscono
@@ -1297,16 +1315,15 @@ class Bridge:
             self.usb.club_enter()
         except SystemExit as exc:
             # L'endpoint inceppato: il rimedio F-4 parte DA SOLO.
-            self.log("[club ] endpoint inceppato all'ingresso: riavvio il "
-                     "Pico da solo (F-4) e riprovo")
+            self.log('[club ] endpoint jammed on entry: restarting the Pico by itself (F-4) and retrying')
             if not self._club_reopen_usb():
-                self.log("[club ] non ci sono riuscito: %s" % exc)
+                self.log('[club ] did not succeed: %s' % exc)
                 self.send_club(club_leave(sess.epoca))
                 return
             try:
                 self.usb.club_enter()
             except SystemExit as exc2:
-                self.log("[club ] fallito anche dopo il riavvio: %s" % exc2)
+                self.log('[club ] failed even after the restart: %s' % exc2)
                 self.send_club(club_leave(sess.epoca))
                 return
 
@@ -1324,13 +1341,11 @@ class Bridge:
             ruolo = "%s (peer %d contro %d: vince il piu' basso)" \
                     % ("MASTER" if sess.master else "SLAVE",
                        self.peer_id, self.club_partner_peer)
-        self.log("[club ] ruolo: %s | epoca 0x%08X" % (ruolo, sess.epoca))
+        self.log('[club ] role: %s | epoch 0x%08X' % (ruolo, sess.epoca))
         if self.club_acc.partner is None and len(self.club_presenti()) >= 2:
             # In 3-4 nessuno ha scelto: non si tira a indovinare. Lo si dice
             # QUI, nel registro di chi e' al bancone, che e' chi puo' farlo.
-            self.log("[club ] siete in %d nella stanza: CON CHI? sceglilo sul sito "
-                     "(\"Al club con\") o col pannello (--club-con N). Se e' "
-                     "l'amico a scegliere te, entri da solo"
+            self.log('[club ] there are %d of you in the room: WITH WHOM? choose on the site ("At the club with") or with the panel (--club-con N). If your friend picks you, you go in on your own'
                      % (len(self.club_presenti()) + 1))
 
     def handle_club_net(self, peer_id, body, now):
@@ -1344,9 +1359,7 @@ class Bridge:
             # di una versione diversa: va detto FORTE, una volta.
             self.club_malformati += 1
             if self.club_malformati == 1:
-                self.log("[club ] PACCHETTO CLUB ILLEGGIBILE dall'amico: "
-                         "probabilmente i suoi .py sono di una versione "
-                         "diversa - aggiornate il pacchetto su ENTRAMBI i PC")
+                self.log('[club ] UNREADABLE CLUB PACKET from your friend: their .py files are probably a different version - update the package on BOTH PCs')
             return
         sub, epoca, payload = parsed
         per = club_per(body)
@@ -1377,16 +1390,15 @@ class Bridge:
         if esito is None:
             n = self.club_acc.scartati
             if n == 1 or n % 500 == 0:
-                self.log("[club ] il peer %d parla di club %s: non e' per noi, "
-                         "lo ignoro (il club e' a due; scartati %d)"
+                self.log('[club ] peer %d is talking about a club %s: not for us, ignored (the club is two-player; dropped %d)'
                          % (peer_id, "con il peer %d" % per if per
-                            else "senza un partner", n))
+                            else 'without a partner', n))
             return
         if esito:
             # IL PEER DELL'AMICO e' meta' della regola dei ruoli (l'altra
             # meta' e' il nostro peer-id): appena si sa, il ruolo parte.
             from club_link import ruolo_master
-            self.log("[club ] partner della sessione: peer %d" % peer_id)
+            self.log('[club ] session partner: peer %d' % peer_id)
             self.club.set_master(ruolo_master(self.peer_id, peer_id))
 
         if sub == CLUB_ENTER:
@@ -1407,7 +1419,7 @@ class Bridge:
         non parte (nessuno ha scelto) o con chi e' partita."""
         if sub == CLUB_LEAVE:
             if self.club_bacheca_detta.pop(peer_id, None) is not None:
-                self.log("[club ] il peer %d ha lasciato il club" % peer_id)
+                self.log('[club ] peer %d left the club' % peer_id)
             return
         per = per or 0
         if self.club_bacheca_detta.get(peer_id) == per:
@@ -1421,7 +1433,7 @@ class Bridge:
             chi = "(siete in due: il partner e' lui)"
         else:
             chi = "e non ha ancora scelto con chi"
-        self.log("[club ] il peer %d e' al Cable Club %s" % (peer_id, chi))
+        self.log('[club ] peer %d is at the Cable Club %s' % (peer_id, chi))
 
     def controlla_versione(self, versione, impronta):
         """I due PC devono avere gli STESSI file. Sembra ovvio e invece e'
@@ -1439,31 +1451,29 @@ class Bridge:
             # cavo dentro mGBA, stessa macchina a stati, nessun .py da
             # confrontare.
             self.club_versione_detta = True
-            self.log("[club ] l'amico gioca in EMULATORE (mGBA, script "
-                     "gen3-poke-multiplayer, stessa versione club %d): compatibile" % versione)
+            self.log('[club ] your friend plays in an EMULATOR (mGBA, gen3-poke-multiplayer script, same club version %d): compatible' % versione)
             return
         if versione == VERSIONE_CLUB and impronta == IMPRONTA_WEB:
             # L'amico gioca dal SITO (web/js/club.js): stessa macchina a
             # stati, nessun .py da confrontare. Non e' un pacchetto vecchio.
             self.club_versione_detta = True
-            self.log("[club ] l'amico gioca dal BROWSER (sito gen3-poke-multiplayer, "
-                     "stessa versione club %d): compatibile" % versione)
+            self.log('[club ] your friend plays from the BROWSER (gen3-poke-multiplayer site, same club version %d): compatible' % versione)
             return
         self.club_versione_detta = True
         self.log("!" * 64)
         if versione == 0:
-            self.log("[club ] L'AMICO HA I FILE VECCHI (i suoi pacchetti non")
-            self.log("[club ] portano nemmeno il numero di versione).")
+            self.log('[club ] YOUR FRIEND HAS OLD FILES (their packages do not')
+            self.log('[club ] even carry the version number).')
         elif versione != VERSIONE_CLUB:
-            self.log("[club ] VERSIONI DIVERSE: lui ha la %d, tu la %d."
+            self.log('[club ] DIFFERENT VERSIONS: they have %d, you have %d.'
                      % (versione, VERSIONE_CLUB))
         else:
-            self.log("[club ] STESSA VERSIONE MA FILE DIVERSI (impronta sua")
-            self.log("[club ] %08X, tua %08X): uno dei due ha un pacchetto"
+            self.log('[club ] SAME VERSION BUT DIFFERENT FILES (their fingerprint')
+            self.log('[club ] %08X, yours %08X): one of you has an'
                      % (impronta, IMPRONTA_SORGENTI))
-            self.log("[club ] piu' vecchio.")
-        self.log("[club ] IL CLUB NON PUO' FUNZIONARE COSI': rifate il")
-        self.log("[club ] pacchetto e copiatelo su ENTRAMBI i PC.")
+            self.log('[club ] older package.')
+        self.log('[club ] THE CLUB CANNOT WORK LIKE THIS: rebuild the')
+        self.log('[club ] package and copy it to BOTH PCs.')
         self.log("!" * 64)
 
     def club_pump(self):
@@ -1494,10 +1504,9 @@ class Bridge:
             esito = "ABBANDONATA (%s)" % (sess.motivo_fine or "watchdog")
         else:
             esito = "conclusa"
-        self.log("[club ] sessione %s | %s" % (esito, sess.riassunto()))
+        self.log('[club ] session %s | %s' % (esito, sess.riassunto()))
         if self.club_drop:
-            self.log("[club ] eventi di camminata buttati durante il club: %d "
-                     "(normale: il payload dormiva)" % self.club_drop)
+            self.log('[club ] walking events dropped during the club: %d (normal: the payload was asleep)' % self.club_drop)
             self.club_drop = 0
         # Niente riagganci automatici per qualche secondo: gli annunci
         # dell'amico ancora in volo appartengono alla sessione appena morta.
@@ -1514,17 +1523,13 @@ class Bridge:
         self.club_acc.fine()
         try:
             self.usb.club_exit()
-            self.log("[club ] Pico di nuovo in passthrough: aspetto che il GBA "
-                     "torni a parlare prima di scrivergli")
+            self.log('[club ] Pico back in passthrough: waiting for the GBA to talk again before writing to it')
         except SystemExit:
-            self.log("[club ] endpoint inceppato al rientro: riavvio il Pico "
-                     "da solo (F-4)")
+            self.log('[club ] endpoint jammed on re-entry: restarting the Pico by itself (F-4)')
             if self._club_reopen_usb():
-                self.log("[club ] canale ripartito: si ricammina")
+                self.log('[club ] channel restarted: walking again')
             else:
-                self.log("[club ] NON sono riuscito a ripartire: scollega e "
-                         "ricollega il Pico (senza BOOTSEL) e rilancia 2-gioca. "
-                         "Il GBA NON va spento: il programma vive in RAM.")
+                self.log('[club ] could NOT restart: unplug and replug the Pico (without BOOTSEL) and run 2-gioca again. Do NOT power off the GBA: the program lives in RAM.')
 
     def _club_reopen_usb(self):
         """F-4 automatico + riapertura completa del canale passthrough.
@@ -1540,7 +1545,7 @@ class Bridge:
             self.usb.open()
             return True
         except Exception as exc:
-            self.log("[club ] riapertura USB fallita: %s" % exc)
+            self.log('[club ] USB reopen failed: %s' % exc)
             return False
 
     def _deliver_one(self, event):
@@ -1560,14 +1565,14 @@ class Bridge:
             except Exception as exc:
                 # Il canale USB non muore per un errore di write: il GBA puo'
                 # essere in mezzo a un riaggancio (M-7). Si conta e si va avanti.
-                self.log("invio al GBA fallito (%s), continuo" % exc)
+                self.log('send to the GBA failed (%s), continuing' % exc)
             return
         if self.game is None:
             return
         try:
             self.game.sendall(event)
         except OSError as exc:
-            self.log("il gioco si e' disconnesso in invio: %s" % exc)
+            self.log('the game disconnected while sending: %s' % exc)
             self.close_game()
 
     # --- verso il gioco ---------------------------------------------------
@@ -1585,12 +1590,12 @@ class Bridge:
         try:
             chunk = self.game.recv(4096)
         except OSError as exc:
-            self.log("lettura dal gioco fallita: %s" % exc)
+            self.log('read from the game failed: %s' % exc)
             self.close_game()
             return
 
         if not chunk:
-            self.log("il gioco ha chiuso la connessione")
+            self.log('the game closed the connection')
             self.close_game()
             return
 
@@ -1609,7 +1614,7 @@ class Bridge:
             altrui = (" | partner peer %s | club ALTRUI scartati %d"
                       % (self.club_acc.partner or "?", self.club_acc.scartati)
                       if self.club_acc.scartati else "")
-            self.log("[club ] sessione viva | %s%s" % (self.club.riassunto(), altrui))
+            self.log('[club ] session alive | %s%s' % (self.club.riassunto(), altrui))
             return
 
         # Il bridge 2 del primo test ha stampato tredici righe di "inviati 0"
@@ -1642,15 +1647,12 @@ class Bridge:
                 # 1 s e `sezioni` fermo = il riconoscimento non scatta;
                 # `stato io zaino` qui e niente riga [stato] io -> zaino =
                 # gli EVENT_STATUS non escono dal cavo.
-                self.log("[gba ] sonda #%d (%.0f s fa): vbl %d | emessi %d | "
-                         "porta %d prese / %d rese | latch %d (rese %d, "
-                         "risvegli %d) | overworld %s%s | stato io %s | "
-                         "sezioni %d | cb2 0x%08X | RIPARAZIONI %d | SCRUB IE %d"
+                self.log('[gba ] probe #%d (%.0f s ago): vbl %d | emitted %d | port %d taken / %d released | latch %d (released %d, wakeups %d) | overworld %s%s | my state %s | sections %d | cb2 0x%08X | REPAIRS %d | IE SCRUBS %d'
                          % (self.usb.state_count, eta, w[0], w[1],
                             w[2] >> 8, w[2] & 0xFF,
                             flags & 1, w[3] >> 8, w[3] & 0xFF,
                             "si" if flags & 2 else "NO",
-                            " (assestamento IN CORSO)" if flags & 4 else "",
+                            ' (settling IN PROGRESS)' if flags & 4 else "",
                             nome_stato((flags >> 8) & 0xF),
                             (flags >> 12) & 0xF,
                             # w[7] porta due byte, ENTRAMBI modulo 256 (il
@@ -1677,17 +1679,12 @@ class Bridge:
                 # abbiamo svegliato la macchina di link con i NOSTRI interrupt.
                 # E' il guasto che bloccava il gioco a intermittenza.
                 sveglia = (ie & 0x0040) != 0
-                self.log("[gba+] SIOCNT %04X RCNT %04X IE %04X -> %s | irq %d "
-                         "| parole %d | RIPARAZIONI %d, RACCOLTI %d | cb1 "
-                         "riagganci %d | salti hook %d"
+                self.log('[gba+] SIOCNT %04X RCNT %04X IE %04X -> %s | irq %d | words %d | REPAIRS %d, COLLECTED %d | cb1 rehooks %d | hook skips %d'
                          % (siocnt, rcnt, ie,
-                            ("!!! IL LINK DEL GIOCO SI E' SVEGLIATO (Timer 3 "
-                             "armato): se non siete al Cable Club e' il "
-                             "guasto che blocca il gioco a scatti")
+                            ("!!! THE GAME'S LINK WOKE UP (Timer 3 armed): unless you are at the Cable Club this is the fault that makes the game stutter")
                             if sveglia
-                            else "REGISTRI NOSTRI" if nostri
-                            else "!!! REGISTRI NON NOSTRI: qualcuno ce li ha "
-                                 "riconfigurati",
+                            else 'REGISTERS OURS' if nostri
+                            else '!!! REGISTERS NOT OURS: someone reconfigured them',
                             d[3], d[4], d[5] >> 8, d[5] & 0xFF, d[6], d[7]))
             # Il primo T-5 (2026-08-02) e' stato riportato come "funziona tutto"
             # mentre questa meta' della catena era ferma a zero: i numeri per
@@ -1723,17 +1720,10 @@ class Bridge:
             self._prev_received = self.received
 
             if stalled >= 2:
-                self.log("      !!! CANALE CON IL GBA FERMO: nessuna parola "
-                         "nuova sul filo da %d letture (parole totali ferme a "
-                         "%d). L'adattatore e' inceppato: lancia 3-sblocca.bat "
-                         "(usb_link.py --riavvia) e rilancia questo, SENZA "
-                         "spegnere il GBA - il programma vive in RAM."
+                self.log('      !!! GBA CHANNEL STUCK: no new words on the wire for %d reads (total words stuck at %d). The adapter is jammed: run 3-sblocca.bat (usb_link.py --riavvia) and start this again WITHOUT powering off the GBA - the program lives in RAM.'
                          % (stalled + 1, words))
             elif self.usb.frames_tx > 20 and self.usb.deframer.frames_rx == 0:
-                self.log("      !!! DIREZIONE GBA->PC ROTTA: mando frame al GBA e "
-                         "non ne torna NESSUNO. Il GBA non parla (cavo/verso/"
-                         "programma), oppure il firmware non ha il fix della "
-                         "back-pressure (serve celio-f1f2b.uf2 o successivo).")
+                self.log('      !!! GBA->PC DIRECTION BROKEN: frames are sent to the GBA and NONE come back. The GBA is not talking (cable/direction/program), or the firmware lacks the back-pressure fix (needs celio-f1f2b.uf2 or later).')
             elif frames_frozen and frames > 0 and self.received > prev_received:
                 # LA PORTA CHIUSA, non un guasto. Il payload possiede il SIO
                 # solo dentro l'overworld (main.c: cb2 == CB2_Overworld ->
@@ -1745,10 +1735,7 @@ class Bridge:
                 # in coda da nessuno - si perdono, e il suo sprite resta fermo
                 # finche' non si rientra. Il 2026-08-02 questo ha prodotto 40
                 # secondi di "sprite fermo" letti come guasto di rete.
-                self.log("      il TUO GBA ha chiuso la porta seriale: sei "
-                         "fuori dall'overworld (menu, casa, lotta, "
-                         "transizione). Gli eventi che arrivano ADESSO si "
-                         "perdono e l'altro ti vede fermo. Torna all'aperto.")
+                self.log('      Your GBA has closed its link port because you are not in the overworld (menu, house, transition). Go back outside.')
             elif frames_frozen and frames > 0:
                 # IL GBA E' MUTO E NESSUNO STA RICEVENDO. E' la firma del
                 # congelamento del 2026-08-15: entrambi i lati fermi, canale
@@ -1775,19 +1762,15 @@ class Bridge:
                     else:
                         verdetto = ("la sonda non ha MAI parlato: payload "
                                     "vecchio senza sonda, o mai partito.")
-                    self.log("      !!! GBA MUTO da %d s con canale vivo. %s"
+                    self.log('      !!! GBA SILENT for %d s while the channel is alive. %s'
                              % (muto * 5, verdetto))
             elif self.usb.frames_tx > 20 and frames < 3:
-                self.log("      !!! il GBA ha parlato %d volte e poi ha smesso, "
-                         "mentre io gli mando roba: il payload non sta girando "
-                         "(multiboot da rifare) oppure e' fermo in un menu."
+                self.log('      !!! the GBA spoke %d times and then stopped while frames are still being sent to it: the payload is not running (redo the multiboot) or it is stuck in a menu.'
                          % frames)
             elif self.received and not self.sent:
-                self.log("      !!! nulla dal GBA verso il relay: gli eventi "
-                         "arrivano solo nell'altro verso")
+                self.log('      !!! nothing from the GBA to the relay: events only arrive in the other direction')
         elif self.game is None:
-            self.log("NESSUN EMULATORE COLLEGATO su 127.0.0.1:%d - hai caricato lo "
-                     "script giusto in questa istanza?" % self.listen_port)
+            self.log('NO EMULATOR CONNECTED on 127.0.0.1:%d - did you load the right script in this instance?' % self.listen_port)
             return
 
         if self.rtts:
@@ -1806,17 +1789,13 @@ class Bridge:
             # trasforma quel silenzio in una domanda esplicita dopo ~30 s.
             self._no_map_prints = getattr(self, "_no_map_prints", 0) + 1
             if self._no_map_prints >= 6 and self._no_map_prints % 6 == 0:
-                self.log("      il GBA non ha ancora detto su che mappa e': "
-                         "sei NELL'OVERWORLD a camminare? Sul titolo e nei "
-                         "menu il payload tace apposta.")
+                self.log('      the GBA has not said which map it is on yet: are you WALKING IN THE OVERWORLD? On the title screen and in menus the payload stays quiet on purpose.')
         else:
             self._no_map_prints = 0
             where = "io su mappa %d.%d" % (self.map_key >> 8,
                                            self.map_key & 0xFF)
 
-        self.log("%s | inviati %d | ricevuti %d | scartati %d dup + %d arretrati"
-                 " | ricuciti %d (+%d larghi) | persi dal simulatore %d | VIA %d"
-                 " | presenza %d | va-e-vieni %d | stanza %d | %s"
+        self.log('%s | sent %d | received %d | dropped %d dup + %d late | healed %d (+%d wide) | lost by simulator %d | VIA %d | presence %d | flaps %d | room %d | %s'
                  % (rtt, self.sent, self.received, self.dup_dropped,
                     self.late_dropped, self.healed, self.heal_far,
                     self.netem.dropped, self.leaves, self.presenze_rimandate,
@@ -1828,27 +1807,27 @@ class Bridge:
         # lotta o dal Cable Club. Se resti fermo al bancone e resta a zero,
         # l'amico che arriva dopo non ti vedra': e' il difetto del 2026-08-28.
         if self.club is not None and not self.presenze_rimandate:
-            self.log("      !!! sei al Cable Club e non e' partita nessuna "
-                     "presenza: chi entra ora non sa che ci sei.")
+            self.log('      !!! you are at the Cable Club and no presence was sent: anyone entering now does not know you are there.')
 
         # Il filo verso il gioco. "scritti" comprende le copie, quindi con
         # --copie 2 deve essere circa il doppio dei passi ricevuti: se non lo
         # e', la ridondanza non sta partendo da qui e non ha senso cercarla
         # dall'altra parte.
-        self.log("  filo verso il gioco: %d frame scritti (copie x%d), "
-                 "%d copie saltate per non intasare%s"
+        self.log('  wire to the game: %d frames written (copies x%d), %d copies skipped to avoid clogging%s'
                  % (self.wire_sent, self.wire_copies, self.copies_skipped,
-                    (", %d buttati dal simulatore di perdita sul filo"
+                    (', %d dropped by the loss simulator on the wire'
                      % self.wire_dropped) if self.wire_loss else ""))
 
         # Gli slot avatar (fino a 4 giocatori): chi sta a schermo su quale
         # slot, e quanti eventi sono rimasti fuori per stanza piena. Se
         # `senza avatar` sale con 3 o meno amici, l'assegnazione e' rotta.
+        self.log("  co-op data: %s" % self.coop_summary())
+
         if self.peer_slots or self.slot_scartati:
-            assegnati = ", ".join("amico %d -> slot %d" % (p, s)
+            assegnati = ", ".join("friend %d -> slot %d" % (p, s)
                                   for p, s in sorted(self.peer_slots.items()))
-            self.log("  avatar: %s | senza avatar: %d eventi"
-                     % (assegnati or "nessuno", self.slot_scartati))
+            self.log('  avatars: %s | events without an avatar: %d'
+                     % (assegnati or 'none', self.slot_scartati))
 
     # --- ciclo principale -------------------------------------------------
 
@@ -1866,8 +1845,7 @@ class Bridge:
             # L'HELLO iscrive alla stanza ma non porta la posizione: se
             # abbiamo gia' una fotografia (riaggancio), la si rimanda subito.
             self.rimanda_presenza(time.monotonic())
-            self.log("GBA collegato via Celio: guarda la barra del banco, "
-                     "deve essere VERDE")
+            self.log('GBA connected through Celio: watch the bench bar, it must be GREEN')
 
         while True:
             now = time.monotonic()
@@ -1938,13 +1916,13 @@ class Bridge:
                     if self.game is not None:
                         # Ricarica dello script in mGBA: la vecchia connessione
                         # e' morta anche se il sistema non ce l'ha ancora detto.
-                        self.log("nuova connessione dal gioco, chiudo la vecchia")
+                        self.log('new connection from the game, closing the old one')
                         self.close_game()
                     conn.setblocking(False)
                     self.game = conn
                     self.last_seq.clear()
                     self.peer_room.clear()
-                    self.log("gioco collegato da %s:%d" % addr)
+                    self.log('game connected from %s:%d' % addr)
                     self.send_udp(pack(T_HELLO, self.peer_id, self.room, 0, self.codice_b), now,
                                   simulate=False)
                     self.rimanda_presenza(now)
