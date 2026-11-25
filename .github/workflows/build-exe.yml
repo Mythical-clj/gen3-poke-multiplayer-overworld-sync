@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     paths: ["net/**", ".github/workflows/build-exe.yml"]
+permissions:
+  contents: write
 jobs:
   exe:
     runs-on: windows-latest
@@ -33,3 +35,10 @@ jobs:
         with:
           name: gblink-windows
           path: gblink-client-windows.zip
+      - name: Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=client-$(date -u +%Y%m%d-%H%M)
+          gh release create "$TAG" gblink-client-windows.zip --title "Client $TAG" --notes "gblink.exe: open it, the panel starts in your browser."
