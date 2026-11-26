@@ -284,7 +284,7 @@ class Bridge:
         self.pos_amici = {}
         self.pos_sporche = False
         self.pos_prossima = 0.0
-        self.pos_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "posizioni")
+        self.pos_dir = os.environ.get("GBLINK_POSIZIONI") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "posizioni")
         self.pos_path = os.path.join(self.pos_dir, "posizioni-%d.json" % self.peer_id)
         self.pos_ultima_scrittura = 0.0
         # LA CHAT DELLA STANZA (2026-10-11, T_CHAT): qui si LEGGE soltanto.

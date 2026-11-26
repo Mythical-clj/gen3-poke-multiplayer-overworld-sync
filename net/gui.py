@@ -1,10 +1,9 @@
-"""gblink.exe: a standalone desktop window (no browser).
+"""gblink.exe: one small window (no Python needed) + a live map in your browser.
 
-The same engine as pannello.py (it starts relay.py, mb_multi.py, client.py,
-usb_link.py as child processes), with a native window on top.
-
-When the exe is started as `gblink.exe -u script.py args` it runs that script
-instead of opening the window: that is how the window starts its children.
+The engine is pannello.py (it starts relay.py, mb_multi.py, client.py,
+usb_link.py as child processes). When the exe is started as
+`gblink.exe -u script.py args` it runs that script instead of opening the
+window: that is how the window starts its children.
 """
 import os
 import runpy
@@ -12,7 +11,6 @@ import sys
 
 
 def _run_child():
-    """gblink.exe -u <script.py> <args...>: run a helper script and exit."""
     script = sys.argv[2]
     sys.argv = sys.argv[2:]
     try:
@@ -27,13 +25,17 @@ if len(sys.argv) >= 3 and sys.argv[1] == "-u" and sys.argv[2].endswith(".py"):
     _run_child()
     sys.exit(0)
 
-# Settings and logs live in the user's folder, not next to the exe (a onefile
-# exe unpacks to a temporary folder that disappears when it closes).
+# Settings, logs and live positions live in the user's folder (a onefile exe
+# unpacks to a temporary folder that disappears when it closes). Children
+# inherit these variables, so the client writes the positions where the map
+# server reads them.
 DATA = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "gblink")
-os.makedirs(DATA, exist_ok=True)
+os.makedirs(os.path.join(DATA, "posizioni"), exist_ok=True)
 os.environ.setdefault("PANNELLO_CONFIG", os.path.join(DATA, "config.json"))
 os.environ.setdefault("PANNELLO_LOG", os.path.join(DATA, "log"))
-STUB_MEMO = os.path.join(DATA, "mbstub-path.txt")
+os.environ["GBLINK_POSIZIONI"] = os.path.join(DATA, "posizioni")
+MEMO_STUB = os.path.join(DATA, "mbstub-path.txt")
+MEMO_MAP = os.path.join(DATA, "mappa-path.txt")
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
@@ -42,37 +44,48 @@ if False:  # never runs: lets PyInstaller see what the helper scripts import
     import argparse, base64, hashlib, heapq, json, queue, random, re, select  # noqa
     import selectors, socket, ssl, struct, subprocess, tempfile, threading  # noqa
     import time, urllib.error, urllib.parse, urllib.request, collections  # noqa
+    import http.server, webbrowser  # noqa
     import usb.core, usb.util, usb.backend.libusb1, libusb_package  # noqa
     import protocol, usb_link, ws_link, club_link, club_mgba, finto_club  # noqa
 
+import threading
 import tkinter as tk
+import webbrowser
+from http.server import ThreadingHTTPServer
 from tkinter import filedialog, messagebox, ttk
 
 import pannello
 
-GREEN = "#0f6b4a"
 RED = "#b3392f"
-AMBER = "#c07a12"
-TAG_COLORS = {"relay": "#2f6fd0", "gioca": "#0f8a5a", "multiboot": "#b07a00",
-              "sblocca": "#c04040", "finto": "#8a4bc0"}
+EXE_DIR = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__))
+
+
+def first_existing(cands, leaf=None):
+    for c in cands:
+        if c and os.path.exists(os.path.join(c, leaf) if leaf else c):
+            return c
+    return None
+
+
+def memo(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
 
 
 def find_stub():
-    cands = [os.environ.get("MBSTUB_PATH") or ""]
-    try:
-        with open(STUB_MEMO, "r", encoding="utf-8") as f:
-            cands.append(f.read().strip())
-    except OSError:
-        pass
-    exe_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__))
-    cands += [os.path.join(exe_dir, "mbstub.gba"),
-              os.path.join(exe_dir, "net", "mbstub.gba"),
-              os.path.join(DATA, "mbstub.gba"),
-              os.path.join(BASE, "mbstub.gba")]
-    for c in cands:
-        if c and os.path.exists(c):
-            return c
-    return None
+    return first_existing([os.environ.get("MBSTUB_PATH"), memo(MEMO_STUB),
+                           os.path.join(EXE_DIR, "mbstub.gba"),
+                           os.path.join(EXE_DIR, "net", "mbstub.gba"),
+                           os.path.join(DATA, "mbstub.gba")])
+
+
+def find_map_dir():
+    return first_existing([os.environ.get("GBLINK_MAPPA"), memo(MEMO_MAP),
+                           os.path.join(EXE_DIR, "mappa"), os.path.join(EXE_DIR, "net", "mappa"),
+                           os.path.join(DATA, "mappa"), os.path.join(BASE, "mappa")], "dati.json")
 
 
 class App:
@@ -81,152 +94,114 @@ class App:
         self.p = pannello.Pannello()
         self.seq = 0
         self.dirty = False
-        root.title("gblink - GBA multiplayer link")
-        root.geometry("1040x760")
-        root.minsize(900, 640)
+        self.httpd = None
+        self.map_port = None
+        root.title("gblink")
+        root.geometry("720x600")
+        root.minsize(620, 520)
         root.protocol("WM_DELETE_WINDOW", self.close)
-
-        style = ttk.Style()
         try:
-            style.theme_use("vista" if sys.platform == "win32" else "clam")
+            ttk.Style().theme_use("vista" if sys.platform == "win32" else "clam")
         except tk.TclError:
             pass
 
-        self.build_status()
-        self.build_body()
-        self.build_log()
-        self.load_config_into_fields()
-        self.tick()
-
-    # --- layout ---------------------------------------------------------
-
-    def build_status(self):
-        f = ttk.Frame(self.root, padding=(10, 8))
-        f.pack(fill="x")
-        self.st_gba = tk.StringVar(value="Your GBA: stopped")
-        self.st_friend = tk.StringVar(value="Friend: waiting")
-        self.st_chan = tk.StringVar(value="Channel: -")
-        self.st_club = tk.StringVar(value="")
-        for var in (self.st_gba, self.st_friend, self.st_chan):
-            ttk.Label(f, textvariable=var, font=("Segoe UI", 11, "bold")).pack(side="left", padx=(0, 24))
-        ttk.Label(f, textvariable=self.st_club, foreground=GREEN).pack(side="left")
+        top = ttk.Frame(root, padding=(12, 10))
+        top.pack(fill="x")
+        self.status = tk.StringVar(value="GBA: stopped   |   Friend: waiting")
+        ttk.Label(top, textvariable=self.status, font=("Segoe UI", 11, "bold")).pack(anchor="w")
         self.warn = tk.StringVar(value="")
-        self.warn_label = tk.Label(self.root, textvariable=self.warn, fg="white", bg=RED,
-                                   anchor="w", padx=10, pady=4, wraplength=1000, justify="left")
+        self.warn_label = tk.Label(top, textvariable=self.warn, fg="white", bg=RED, anchor="w",
+                                   padx=8, pady=4, wraplength=680, justify="left")
 
-    def build_body(self):
-        body = ttk.Frame(self.root, padding=(10, 0))
-        body.pack(fill="x")
+        big = ttk.Frame(root, padding=(12, 0))
+        big.pack(fill="x")
+        self.btn_load = ttk.Button(big, text="1. Load game into GBA", command=lambda: self.toggle("multiboot"))
+        self.btn_play = ttk.Button(big, text="2. Play", command=self.toggle_play)
+        self.btn_map = ttk.Button(big, text="Live map", command=self.open_map)
+        for b in (self.btn_load, self.btn_play, self.btn_map):
+            b.pack(side="left", expand=True, fill="x", padx=4, ipady=10)
+        self.msg = tk.StringVar(value="")
+        ttk.Label(root, textvariable=self.msg, foreground=RED, wraplength=680).pack(anchor="w", padx=16, pady=(6, 0))
 
-        game = ttk.LabelFrame(body, text="Game", padding=10)
-        game.pack(side="left", fill="both", expand=True, padx=(0, 8))
-        ttk.Label(game, text="Before pressing anything: cartridge slot EMPTY, cable plugged in,\n"
-                             "then turn the GBA on. After the load, insert the cartridge while it runs.",
-                  justify="left").pack(anchor="w", pady=(0, 8))
-        self.buttons = {}
-        for name, num, title, hint in (
-            ("relay", "0", "Start the relay", "Only needed by the host. Leave it running."),
-            ("multiboot", "1", "Load the game into the GBA", "Red screen, insert cartridge, green."),
-            ("gioca", "2", "Play", "Press when you are in the game, outdoors."),
-        ):
-            row = ttk.Frame(game)
-            row.pack(fill="x", pady=3)
-            b = ttk.Button(row, text="Start", width=8, command=lambda n=name: self.toggle(n))
-            b.pack(side="right")
-            ttk.Label(row, text="%s  %s" % (num, title), font=("Segoe UI", 10, "bold")).pack(anchor="w")
-            ttk.Label(row, text=hint, foreground="#666").pack(anchor="w")
-            self.buttons[name] = b
-        tools = ttk.Frame(game)
-        tools.pack(fill="x", pady=(10, 0))
-        ttk.Button(tools, text="Unjam adapter", command=lambda: self.start("sblocca")).pack(side="left", padx=(0, 6))
-        self.btn_finto = ttk.Button(tools, text="Test alone (fake partner)", command=lambda: self.toggle("finto"))
-        self.btn_finto.pack(side="left", padx=(0, 6))
-        ttk.Button(tools, text="Choose mbstub.gba...", command=self.pick_stub).pack(side="left")
-        self.action_msg = tk.StringVar(value="")
-        ttk.Label(game, textvariable=self.action_msg, foreground=RED, wraplength=430, justify="left").pack(anchor="w", pady=(8, 0))
-
-        sett = ttk.LabelFrame(body, text="Settings", padding=10)
-        sett.pack(side="left", fill="both", expand=True)
-        ttk.Label(sett, text="These must match between you and your friend: the same room and relay.",
-                  wraplength=430, justify="left").pack(anchor="w", pady=(0, 6))
-        self.role = tk.StringVar(value="ospite")
-        r = ttk.Frame(sett)
-        r.pack(fill="x")
-        ttk.Radiobutton(r, text="I host the relay", variable=self.role, value="ospite",
-                        command=self.role_changed).pack(side="left", padx=(0, 12))
-        ttk.Radiobutton(r, text="I connect to a friend", variable=self.role, value="amico",
-                        command=self.role_changed).pack(side="left")
-        grid = ttk.Frame(sett)
-        grid.pack(fill="x", pady=6)
+        sett = ttk.Frame(root, padding=(12, 8))
+        sett.pack(fill="x")
         self.v_relay = tk.StringVar()
         self.v_room = tk.StringVar()
+        self.v_host = tk.BooleanVar()
         self.v_timing = tk.StringVar()
         self.v_peer = tk.StringVar()
         self.v_cable = tk.StringVar()
-        rows = (("Relay (host:port or wss://...)", self.v_relay, None),
-                ("Room (same number for everyone)", self.v_room, None),
-                ("Channel speed (timing, leave at 7400)", self.v_timing, None),
-                ("Your number (peer, 0 = automatic)", self.v_peer, None),
-                ("Cable", self.v_cable, ("auto", "gba", "gbc")))
-        for i, (label, var, choices) in enumerate(rows):
-            ttk.Label(grid, text=label).grid(row=i, column=0, sticky="w", pady=2, padx=(0, 10))
-            if choices:
-                w = ttk.Combobox(grid, textvariable=var, values=choices, state="readonly", width=30)
-            else:
-                w = ttk.Entry(grid, textvariable=var, width=33)
-            w.grid(row=i, column=1, sticky="w")
-            var.trace_add("write", lambda *a: setattr(self, "dirty", True))
-        ttk.Label(sett, text="With 3 or more players (even mixing GBAs, emulators, browsers) everyone\n"
-                             "needs a DIFFERENT peer number.", foreground="#666", justify="left").pack(anchor="w")
-        sv = ttk.Frame(sett)
-        sv.pack(fill="x", pady=(8, 0))
-        ttk.Button(sv, text="Save settings", command=self.save).pack(side="left")
-        self.cfg_msg = tk.StringVar(value="")
-        ttk.Label(sv, textvariable=self.cfg_msg).pack(side="left", padx=10)
+        ttk.Label(sett, text="Relay").grid(row=0, column=0, sticky="w")
+        ttk.Entry(sett, textvariable=self.v_relay, width=34).grid(row=0, column=1, padx=6)
+        ttk.Label(sett, text="Room").grid(row=0, column=2, sticky="w")
+        ttk.Entry(sett, textvariable=self.v_room, width=8).grid(row=0, column=3, padx=6)
+        ttk.Checkbutton(sett, text="I host the relay", variable=self.v_host,
+                        command=self.host_changed).grid(row=0, column=4, padx=6)
+        for v in (self.v_relay, self.v_room, self.v_timing, self.v_peer, self.v_cable):
+            v.trace_add("write", lambda *a: setattr(self, "dirty", True))
 
-    def build_log(self):
-        box = ttk.LabelFrame(self.root, text="Log", padding=6)
-        box.pack(fill="both", expand=True, padx=10, pady=10)
+        self.adv_open = tk.BooleanVar(value=False)
+        self.adv_check = ttk.Checkbutton(root, text="More options", variable=self.adv_open, command=self.toggle_adv)
+        self.adv_check.pack(anchor="w", padx=16)
+        self.adv = ttk.Frame(root, padding=(12, 4))
+        row = ttk.Frame(self.adv)
+        row.pack(fill="x")
+        for i, (label, var, w) in enumerate((("Timing", self.v_timing, 7), ("Peer (0 = auto)", self.v_peer, 6))):
+            ttk.Label(row, text=label).pack(side="left", padx=(0, 4))
+            ttk.Entry(row, textvariable=var, width=w).pack(side="left", padx=(0, 12))
+        ttk.Label(row, text="Cable").pack(side="left", padx=(0, 4))
+        ttk.Combobox(row, textvariable=self.v_cable, values=("auto", "gba", "gbc"), state="readonly",
+                     width=6).pack(side="left")
+        row2 = ttk.Frame(self.adv)
+        row2.pack(fill="x", pady=(6, 0))
+        ttk.Button(row2, text="Unjam adapter", command=lambda: self.start("sblocca")).pack(side="left", padx=(0, 6))
+        self.btn_finto = ttk.Button(row2, text="Test alone (fake partner)", command=lambda: self.toggle("finto"))
+        self.btn_finto.pack(side="left", padx=(0, 6))
+        ttk.Button(row2, text="Choose mbstub.gba...", command=self.pick_stub).pack(side="left", padx=(0, 6))
+        ttk.Button(row2, text="Choose map folder...", command=self.pick_map).pack(side="left")
+
+        box = ttk.Frame(root, padding=(12, 6))
+        box.pack(fill="both", expand=True)
         bar = ttk.Frame(box)
         bar.pack(fill="x")
-        self.follow = tk.BooleanVar(value=True)
-        self.only_game = tk.BooleanVar(value=False)
-        ttk.Checkbutton(bar, text="Follow new lines", variable=self.follow).pack(side="left", padx=(0, 12))
-        ttk.Checkbutton(bar, text="Game only", variable=self.only_game, command=self.clear_log).pack(side="left", padx=(0, 12))
-        ttk.Button(bar, text="Copy the whole log", command=self.copy_log).pack(side="right", padx=(6, 0))
-        ttk.Button(bar, text="Save log...", command=self.save_log).pack(side="right", padx=(6, 0))
-        ttk.Button(bar, text="Clear", command=self.clear_log).pack(side="right")
+        ttk.Label(bar, text="Log").pack(side="left")
+        ttk.Button(bar, text="Copy", command=self.copy_log).pack(side="right", padx=(6, 0))
+        ttk.Button(bar, text="Save...", command=self.save_log).pack(side="right", padx=(6, 0))
         inner = ttk.Frame(box)
-        inner.pack(fill="both", expand=True, pady=(6, 0))
-        self.log = tk.Text(inner, height=14, wrap="none", bg="#14201b", fg="#d8e6dd",
+        inner.pack(fill="both", expand=True, pady=(4, 0))
+        self.log = tk.Text(inner, height=10, wrap="none", bg="#14201b", fg="#d8e6dd",
                            font=("Consolas", 9), state="disabled")
         sb = ttk.Scrollbar(inner, command=self.log.yview)
         self.log.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.log.pack(side="left", fill="both", expand=True)
-        for k, c in TAG_COLORS.items():
-            self.log.tag_configure(k, foreground=c if k != "gioca" else "#7fd7a0")
-        for k, c in (("relay", "#7fb2ff"), ("multiboot", "#ffcc70"), ("sblocca", "#ff9a9a"), ("finto", "#d8a0ff")):
-            self.log.tag_configure(k, foreground=c)
-        self.log.tag_configure("grave", foreground="#ff8f8f", font=("Consolas", 9, "bold"))
+        self.log.tag_configure("bad", foreground="#ff8f8f")
 
-    # --- settings ---------------------------------------------------------
+        self.load_fields()
+        self.tick()
 
-    def load_config_into_fields(self):
+    # --- settings -------------------------------------------------------
+
+    def toggle_adv(self):
+        if self.adv_open.get():
+            self.adv.pack(fill="x", after=self.adv_check)
+        else:
+            self.adv.pack_forget()
+
+    def load_fields(self):
         c = self.p.config
-        self.role.set(c["ruolo"])
         self.v_relay.set(str(c["relay"]))
         self.v_room.set(str(c["stanza"]))
+        self.v_host.set(c["ruolo"] == "ospite")
         self.v_timing.set(str(c["timing"]))
         self.v_peer.set(str(c.get("peer") or ""))
         self.v_cable.set(c["cavo"])
         self.dirty = False
 
-    def role_changed(self):
-        if self.role.get() == "ospite" and not self.v_relay.get().startswith("127.0.0.1:"):
-            port = self.v_relay.get().split(":")[-1] if ":" in self.v_relay.get() else "9000"
+    def host_changed(self):
+        if self.v_host.get() and not self.v_relay.get().startswith("127.0.0.1:"):
+            port = self.v_relay.get().rsplit(":", 1)[-1] if ":" in self.v_relay.get() else "9000"
             self.v_relay.set("127.0.0.1:" + (port if port.isdigit() else "9000"))
-        self.save()
 
     def save(self):
         def num(v, default):
@@ -234,21 +209,22 @@ class App:
                 return int(str(v).strip())
             except ValueError:
                 return default
-        ok, msg = self.p.aggiorna_config({
-            "ruolo": self.role.get(),
+        ok, text = self.p.aggiorna_config({
+            "ruolo": "ospite" if self.v_host.get() else "amico",
             "relay": self.v_relay.get().strip(),
             "stanza": num(self.v_room.get(), -1),
             "timing": num(self.v_timing.get(), -1),
             "peer": num(self.v_peer.get(), 0) if self.v_peer.get().strip() else 0,
             "cavo": self.v_cable.get() or "auto",
         })
-        self.cfg_msg.set("Settings saved." if ok else msg)
         if ok:
-            self.load_config_into_fields()
-            self.root.after(3000, lambda: self.cfg_msg.set(""))
+            self.load_fields()
+            self.msg.set("")
+        else:
+            self.msg.set(text)
         return ok
 
-    # --- actions ----------------------------------------------------------
+    # --- actions --------------------------------------------------------
 
     def pick_stub(self):
         path = filedialog.askopenfilename(title="Select mbstub.gba",
@@ -256,55 +232,97 @@ class App:
         if path:
             os.environ["MBSTUB_PATH"] = path
             try:
-                with open(STUB_MEMO, "w", encoding="utf-8") as f:
+                with open(MEMO_STUB, "w", encoding="utf-8") as f:
                     f.write(path)
             except OSError:
                 pass
-            self.action_msg.set("")
         return path
 
+    def pick_map(self):
+        path = filedialog.askdirectory(title="Select the map folder (the one with dati.json)")
+        if path and os.path.exists(os.path.join(path, "dati.json")):
+            os.environ["GBLINK_MAPPA"] = path
+            pannello.MAPPA_DIR = path
+            try:
+                with open(MEMO_MAP, "w", encoding="utf-8") as f:
+                    f.write(path)
+            except OSError:
+                pass
+            return path
+        if path:
+            self.msg.set("That folder has no dati.json.")
+        return None
+
     def start(self, what):
-        if what in ("relay", "gioca", "finto") or what == "sblocca":
-            if not self.save():
-                self.action_msg.set(self.cfg_msg.get())
-                return
-        if what == "multiboot" and find_stub() is None:
-            if not self.pick_stub():
-                self.action_msg.set("mbstub.gba is needed to load the game into the GBA.")
-                return
-        stub = find_stub()
-        if stub:
-            os.environ["MBSTUB_PATH"] = stub
-        ok, msg = self.p.avvia(what)
-        self.action_msg.set("" if ok else msg)
+        if not self.save():
+            return False
+        if what == "multiboot":
+            if find_stub() is None and not self.pick_stub():
+                self.msg.set("mbstub.gba is needed to load the game into the GBA.")
+                return False
+            os.environ["MBSTUB_PATH"] = find_stub()
+        ok, text = self.p.avvia(what)
+        self.msg.set("" if ok else text)
+        return ok
 
     def toggle(self, what):
         if self.p.proc[what].vivo():
-            ok, msg = self.p.ferma(what)
-            self.action_msg.set("" if ok else msg)
+            self.p.ferma(what)
         else:
             self.start(what)
+
+    def toggle_play(self):
+        if self.p.proc["gioca"].vivo():
+            self.p.ferma("gioca")
+            return
+        if not self.save():
+            return
+        if self.v_host.get() and not self.p.proc["relay"].vivo():
+            self.p.avvia("relay")     # the host's relay starts by itself
+        self.start("gioca")
+
+    def open_map(self):
+        mdir = find_map_dir()
+        if mdir is None:
+            messagebox.showinfo("Live map",
+                                "The map pictures are not included in the exe.\n\n"
+                                "Pick the 'mappa' folder (the one with dati.json, made by tools\\gen_mappa.py).\n"
+                                "Or just put that folder next to gblink.exe.")
+            mdir = self.pick_map()
+            if mdir is None:
+                return
+        os.environ["GBLINK_MAPPA"] = mdir
+        pannello.MAPPA_DIR = mdir
+        if self.httpd is None:
+            pannello.Handler.pannello = self.p
+            for port in range(7411, 7431):
+                try:
+                    self.httpd = ThreadingHTTPServer(("127.0.0.1", port), pannello.Handler)
+                    self.map_port = port
+                    break
+                except OSError:
+                    continue
+            if self.httpd is None:
+                self.msg.set("Could not open a local port for the map.")
+                return
+            threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        webbrowser.open("http://127.0.0.1:%d/mappa.html" % self.map_port)
 
     def close(self):
         try:
             self.p.ferma_tutto()
+            if self.httpd is not None:
+                self.httpd.shutdown()
         finally:
             self.root.destroy()
 
-    # --- log --------------------------------------------------------------
-
-    def clear_log(self):
-        self.log.configure(state="normal")
-        self.log.delete("1.0", "end")
-        self.log.configure(state="disabled")
+    # --- log ------------------------------------------------------------
 
     def copy_log(self):
         text = self.p.testo_log()
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
-        self.action_msg.set("")
-        self.cfg_msg.set("Copied %d lines." % text.count("\n"))
-        self.root.after(3000, lambda: self.cfg_msg.set(""))
+        self.msg.set("")
 
     def save_log(self):
         path = filedialog.asksaveasfilename(defaultextension=".log", initialfile="gblink.log",
@@ -321,23 +339,19 @@ class App:
             return
         self.log.configure(state="normal")
         for r in lines:
-            if self.only_game.get() and r["chi"] != "gioca":
-                continue
             text = r["testo"]
-            for prefix in ("[%s]" % r["chi"],):
-                if text.startswith(prefix):
-                    text = text[len(prefix):].lstrip()
-            grave = any(w in text for w in ("!!!", "FAILED", "ERROR", "cannot", "NO EMULATOR"))
-            self.log.insert("end", "[%s] " % r["chi"], r["chi"])
-            self.log.insert("end", text + "\n", "grave" if grave else "")
-        lines_now = int(self.log.index("end-1c").split(".")[0])
-        if lines_now > 1500:
-            self.log.delete("1.0", "%d.0" % (lines_now - 1500))
+            prefix = "[%s]" % r["chi"]
+            if text.startswith(prefix):
+                text = text[len(prefix):].lstrip()
+            bad = any(w in text for w in ("!!!", "FAILED", "ERROR", "cannot", "NO EMULATOR"))
+            self.log.insert("end", "[%s] %s\n" % (r["chi"], text), "bad" if bad else "")
+        n = int(self.log.index("end-1c").split(".")[0])
+        if n > 1500:
+            self.log.delete("1.0", "%d.0" % (n - 1500))
         self.log.configure(state="disabled")
-        if self.follow.get():
-            self.log.see("end")
+        self.log.see("end")
 
-    # --- refresh ------------------------------------------------------------
+    # --- refresh --------------------------------------------------------
 
     def tick(self):
         try:
@@ -345,35 +359,33 @@ class App:
             self.seq = s["seq"]
             self.paint(s)
             self.add_lines(s["righe"])
-        except Exception as exc:  # never let a paint error stop the refresh
-            self.action_msg.set("display error: %s" % exc)
+        except Exception as exc:
+            self.msg.set("display error: %s" % exc)
         self.root.after(400, self.tick)
 
     def paint(self, s):
-        sy = s["sintesi"]
-        procs = s["processi"]
+        sy, procs = s["sintesi"], s["processi"]
         if sy["mappa"]:
-            self.st_gba.set("Your GBA: in game (map %s)" % sy["mappa"])
+            gba = "GBA: in game (map %s)" % sy["mappa"]
         elif sy["caricato"]:
-            self.st_gba.set("Your GBA: program loaded")
+            gba = "GBA: program loaded"
         else:
-            self.st_gba.set("Your GBA: stopped")
-        self.st_friend.set("Friend: connected" if sy["amico"] else "Friend: waiting")
-        rate = sy["parole_s"] if sy["parole_s"] else "-"
-        self.st_chan.set("Channel: %s words/s | sent %d | received %d" % (rate, sy["inviati"], sy["ricevuti"]))
-        club = sy.get("club")
-        self.st_club.set(("Cable Club: " + str(club).upper()) if club else "")
+            gba = "GBA: stopped"
+        parts = [gba, "Friend: connected" if sy["amico"] else "Friend: waiting"]
+        if sy["parole_s"]:
+            parts.append("%s words/s" % sy["parole_s"])
+        if sy.get("club"):
+            parts.append("Cable Club: %s" % str(sy["club"]).upper())
+        self.status.set("   |   ".join(parts))
         if sy["avviso"]:
-            self.warn.set("!  " + sy["avviso"])
-            self.warn_label.pack(fill="x", padx=10, after=self.root.winfo_children()[0])
+            self.warn.set(sy["avviso"])
+            self.warn_label.pack(fill="x", pady=(6, 0))
         else:
             self.warn_label.pack_forget()
-        for name, b in self.buttons.items():
-            b.configure(text="Stop" if procs[name]["vivo"] else "Start")
+        self.btn_load.configure(text="1. Stop loading" if procs["multiboot"]["vivo"] else "1. Load game into GBA")
+        self.btn_play.configure(text="2. Stop" if procs["gioca"]["vivo"] else "2. Play")
         self.btn_finto.configure(text="Stop the fake partner" if procs["finto"]["vivo"]
                                  else "Test alone (fake partner)")
-        if not self.dirty and s["config"] != self.p.config:
-            self.load_config_into_fields()
 
 
 def main():
