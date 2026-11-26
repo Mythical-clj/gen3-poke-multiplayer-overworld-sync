@@ -14,6 +14,33 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pyinstaller pyusb libusb-package
+      - name: Arm toolchain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release list -R xpack-dev-tools/arm-none-eabi-gcc-xpack --limit 60 --json tagName -q '.[].tagName' | grep '^v14\.' | head -1)
+          echo "xpack arm-none-eabi-gcc $TAG"
+          gh release download "$TAG" -R xpack-dev-tools/arm-none-eabi-gcc-xpack --pattern '*win32-x64.zip' --dir tc
+          7z x tc/*win32-x64.zip -otc/x > /dev/null
+          BIN=$(ls -d tc/x/*/bin | head -1)
+          echo "$(cygpath -w "$PWD/$BIN")" >> "$GITHUB_PATH"
+      - name: Header with the multiboot logo
+        shell: bash
+        run: |
+          python -c "
+          d = bytearray(0xC0)
+          d[4:0xA0] = open('hw/mbstub/logo.bin', 'rb').read()
+          d[0xB0:0xB2] = b'01'
+          open('logo-header.gba', 'wb').write(d)
+          "
+      - name: Build mbstub.gba (the multiboot program)
+        shell: powershell
+        run: |
+          arm-none-eabi-gcc --version
+          .\hw\mbstub\build.ps1 -Syms tutte -LogoFrom "$PWD\logo-header.gba"
+          Copy-Item hw\mbstub\build\mbstub.gba net\mbstub.gba
+          Get-Item net\mbstub.gba
       - name: Build
         shell: bash
         run: |
@@ -23,7 +50,7 @@ jobs:
             ADD="$ADD --add-data $f;."
           done
           pyinstaller --onefile --console --name gblink \
-            $ADD --add-data "mappa.html;." --add-data "img;img" --add-data "../web/fonts;fonts" \
+            $ADD --add-data "mappa.html;." --add-data "mbstub.gba;." --add-data "img;img" --add-data "../web/fonts;fonts" \
             --collect-binaries libusb_package --collect-submodules usb \
             --hidden-import tkinter --hidden-import tkinter.ttk \
             --hidden-import http.server --hidden-import tkinter.filedialog --hidden-import tkinter.messagebox \
@@ -43,4 +70,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=client-$(date -u +%Y%m%d-%H%M)
-          gh release create "$TAG" net/dist/gblink.exe --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. Put mbstub.gba and the mappa folder next to it (or pick them with the buttons)."
+          gh release create "$TAG" net/dist/gblink.exe net/mbstub.gba --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. mbstub.gba is inside. For the live map, put your mappa folder next to it."

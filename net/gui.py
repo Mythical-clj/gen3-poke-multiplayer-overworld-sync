@@ -79,7 +79,7 @@ def find_stub():
     return first_existing([os.environ.get("MBSTUB_PATH"), memo(MEMO_STUB),
                            os.path.join(EXE_DIR, "mbstub.gba"),
                            os.path.join(EXE_DIR, "net", "mbstub.gba"),
-                           os.path.join(DATA, "mbstub.gba")])
+                           os.path.join(DATA, "mbstub.gba"), os.path.join(BASE, "mbstub.gba")])
 
 
 def find_map_dir():
@@ -257,8 +257,9 @@ class App:
         if not self.save():
             return False
         if what == "multiboot":
-            if find_stub() is None and not self.pick_stub():
-                self.msg.set("mbstub.gba is needed to load the game into the GBA.")
+            if find_stub() is None:
+                self.msg.set("mbstub.gba was not found. Put it next to gblink.exe, "
+                             "or choose it under More options.")
                 return False
             os.environ["MBSTUB_PATH"] = find_stub()
         ok, text = self.p.avvia(what)
