@@ -125,8 +125,8 @@ def _trova_device(required=True):
         raise SystemExit("pyusb senza backend libusb: pip install libusb-package")
     if dev is None and required:
         raise SystemExit(
-            f"nessun device {VID:04x}:{PID:04x}: Celio non e' collegato, "
-            "o sul Pico c'e' un altro firmware.")
+            f"no device {VID:04x}:{PID:04x}: Celio is not plugged in, "
+            "or the Pico has different firmware.")
     return dev
 
 
@@ -152,7 +152,7 @@ def riavvia_pico(dev=None, quiet=False):
     except Exception as e:
         usb.util.dispose_resources(dev)
         if not quiet:
-            print(f"[usb ] comando di riavvio NON partito: {e}")
+            print(f"[usb ] restart command did NOT go out: {e}")
         return False, False
     usb.util.dispose_resources(dev)
 
@@ -387,14 +387,14 @@ class UsbLink:
             # test che si stava per fare, che e' il modo migliore di perdere
             # mezz'ora dietro alla variabile sbagliata.
             raise SystemExit(
-                f"\n[usb ] il comando '{label}' non e' partito: {e}\n"
-                "[usb ] E' l'endpoint USB del Pico inceppato dopo la sessione\n"
-                "[usb ] precedente, NON un difetto di cio' che stavi provando.\n"
-                "[usb ] Rimedio: python usb_link.py --riavvia (F-4). Se anche\n"
-                "[usb ] quello fallisce: SCOLLEGA e RICOLLEGA il Pico (senza\n"
-                "[usb ] BOOTSEL, cosi' tiene il firmware), poi rilancia. Il\n"
-                "[usb ] programma sul GBA vive in RAM e sopravvive: non\n"
-                "[usb ] spegnere la console.")
+                f"\n[usb ] the command '{label}' did not go out: {e}\n"
+                "[usb ] This is the Pico USB endpoint jammed after the previous\n"
+                "[usb ] session, NOT a defect in what you were trying.\n"
+                "[usb ] Fix: python usb_link.py --riavvia (F-4). If that\n"
+                "[usb ] fails too: UNPLUG and REPLUG the Pico (without\n"
+                "[usb ] BOOTSEL, so it keeps its firmware), then run again. The\n"
+                "[usb ] program on the GBA lives in RAM and survives: do not\n"
+                "[usb ] turn the console off.")
         time.sleep(pause)
         if not self.quiet:
             print(f"[usb ] {label}")
@@ -659,12 +659,12 @@ class UsbLink:
         if not self.quiet:
             resti = vecchi + (nuovi[:-1] if self.club_ready else nuovi)
             if resti:
-                print("[usb ] stati di transizione scartati: %s"
+                print("[usb ] transition states discarded: %s"
                       % ", ".join("0x%04X" % s for s in resti))
-            print("[usb ] %s" % ("AwaitMode: il device e' pronto per il club"
+            print("[usb ] %s" % ("AwaitMode: the device is ready for the club"
                                  if self.club_ready else
-                                 "!!! AwaitMode NON e' arrivato entro 3 s: il "
-                                 "device non e' entrato in modo link"))
+                                 "!!! AwaitMode did NOT arrive within 3 s: the "
+                                 "device did not enter link mode"))
 
         self._stop.clear()
         # DUE lettori, uno per endpoint (2026-08-19). Il lettore unico che
@@ -779,9 +779,9 @@ class UsbLink:
                 rate = "%.0f" % ((d.words_rx - self._rate_words) / trascorso)
                 self._rate_since = adesso
                 self._rate_words = d.words_rx
-        return (f"tx {self.frames_tx} frame ({self.tx_errors} errori) | "
-                f"rx {d.frames_rx} frame, {rate} parole/s ({d.words_rx} tot, "
-                f"{self.packets_rx} pacchetti), {d.frame_err} errori, "
+        return (f"tx {self.frames_tx} frames ({self.tx_errors} errors) | "
+                f"rx {d.frames_rx} frames, {rate} words/s ({d.words_rx} total, "
+                f"{self.packets_rx} packets), {d.frame_err} errors, "
                 f"{d.resync} resync")
 
     def diagnosi_linea(self):
@@ -826,9 +826,9 @@ def ascolta(args):
     eventi = 0
     fine = time.time() + args.ascolta
     ultimo = 0.0
-    print(f"\nin ascolto per {args.ascolta:.0f} s. CAMMINA nell'overworld: il payload "
-          "manda un PASSO per ogni tile\ne un SYNC circa al secondo. Se resti fermo "
-          "devono arrivare comunque i SYNC.\n")
+    print(f"\nlistening for {args.ascolta:.0f} s. WALK in the overworld: the payload "
+          "sends one STEP per tile\nand a SYNC about once a second. If you stand still "
+          "the SYNCs must still arrive.\n")
     try:
         while time.time() < fine:
             for ev in link.poll_events():
@@ -846,7 +846,7 @@ def ascolta(args):
                 # anche lo stato, e' l'endpoint del Pico.
                 st = link.last_status
                 st_txt = "mai letto" if st is None else f"0x{st:04X}"
-                errori = (f", {link.status_fails} errori USB"
+                errori = (f", {link.status_fails} USB errors"
                           if link.status_fails else "")
                 print(f"        ... {link.stats()} | status {st_txt}{errori}")
             time.sleep(0.05)
@@ -857,19 +857,19 @@ def ascolta(args):
 
     d = link.deframer
     print("\nriassunto dell'ascolto:")
-    print(f"  eventi dal GBA         : {eventi}")
+    print(f"  events from the GBA   : {eventi}")
     print(f"  {link.stats()}")
     # Lo stato serve a UNA cosa sola: dire se l'USB era vivo mentre i dati non
     # arrivavano. Quindi si stampa solo cio' che discrimina - le letture
     # riuscite e gli errori VERI. I timeout sono il caso normale (1 ms) e si
     # stampano solo se non e' mai riuscita nessuna lettura.
     if link.status_reads == 0:
-        print(f"  stato (EP 0x81)        : MAI letto in {link.status_timeouts} "
-              "tentativi -> l'endpoint di stato non risponde")
+        print(f"  status (EP 0x81)       : NEVER read in {link.status_timeouts} "
+              "attempts -> the status endpoint is not answering")
     else:
-        print(f"  stato (EP 0x81)        : 0x{link.last_status:04X}, "
-              f"{link.status_reads} letture riuscite"
-              + (f", {link.status_fails} errori USB" if link.status_fails
+        print(f"  status (EP 0x81)       : 0x{link.last_status:04X}, "
+              f"{link.status_reads} successful reads"
+              + (f", {link.status_fails} USB errors" if link.status_fails
                  else ""))
     # Il payload manda un SYNC circa AL SECONDO anche da fermo: su una sessione
     # di N secondi ci si aspettano ~N eventi. "Almeno uno" non e' un criterio -
@@ -878,28 +878,28 @@ def ascolta(args):
     # criterio che passa quando non deve e' peggio di nessun criterio.
     attesi = max(3, int(args.ascolta * 0.5))
     if 0 < eventi < attesi:
-        print(f"  -> ⚠ IL PAYLOAD SI E' ZITTITO: {eventi} eventi in "
-              f"{args.ascolta:.0f} s, ne servivano almeno {attesi} (il SYNC "
-              "parte ~1/s anche da fermo).")
-        print("     Ha parlato e poi ha smesso: NON e' un problema di cavo o "
-              "di pin.\n"
-              "     Da guardare, in ordine: sei rimasto nell'overworld? il "
-              "gioco gira\n"
-              "     ancora normalmente (audio, animazioni)? Se l'audio e' "
-              "distorto,\n"
-              "     le due cose sono probabilmente lo stesso difetto.")
+        print(f"  -> ⚠ THE PAYLOAD WENT SILENT: {eventi} events in "
+              f"{args.ascolta:.0f} s, at least {attesi} were needed (the SYNC "
+              "goes out ~1/s even when standing still).")
+        print("     It talked and then stopped: this is NOT a cable or pin "
+              "problem.\n"
+              "     Check, in order: did you stay in the overworld? is the "
+              "game still\n"
+              "     running normally (audio, animations)? If the audio is "
+              "distorted,\n"
+              "     the two things are probably the same defect.")
         print(link.diagnosi_linea())
     elif eventi >= attesi and d.frame_err == 0:
-        print("  -> IL PAYLOAD PARLA, e il canale e' integro: bring-up passato")
+        print("  -> THE PAYLOAD IS TALKING and the channel is clean: bring-up passed")
     elif eventi > 0:
-        print("  -> il payload parla ma il canale perde: guarda errori/resync")
+        print("  -> the payload talks but the channel loses data: look at errors/resync")
     else:
-        print("  -> nessun evento. Che cosa e' arrivato, invece:")
+        print("  -> no events. What arrived instead:")
         print(link.diagnosi_linea())
-        print("  Se dice 'nessuno risponde': il payload non sta trasmettendo.\n"
-              "  Controlla di essere NELL'OVERWORLD (nei menu e in lotta il\n"
-              "  payload molla la porta seriale apposta) e che il gioco sia\n"
-              "  partito dallo stub multiboot, non da un'accensione normale.")
+        print("  If it says 'nobody answers': the payload is not transmitting.\n"
+              "  Check that you are IN THE OVERWORLD (in menus and battles the\n"
+              "  payload drops the serial port on purpose) and that the game was\n"
+              "  started from the multiboot stub, not from a normal power-on.")
     return 0
 
 
@@ -932,22 +932,22 @@ def main():
     args = ap.parse_args()
 
     if args.riavvia:
-        print("[usb ] riavvio del Pico (F-4)...")
+        print("[usb ] restarting the Pico (F-4)...")
         sparito, ricomparso = riavvia_pico()
         if ricomparso:
             print("[usb ] sparito e ricomparso: riavvio avvenuto, canale pulito")
             return 0
         if not sparito:
-            print("[usb ] il Pico NON e' mai sparito dal bus: il firmware non "
-                  "ha la F-4.\n[usb ] Flasha hw/firmware/celio-f1f2b-f3-f4.uf2 "
-                  "(BOOTSEL), oppure scollega\n[usb ] e ricollega a mano.")
+            print("[usb ] the Pico NEVER disappeared from the bus: its firmware does not "
+                  "have F-4.\n[usb ] Flash hw/firmware/celio-f1f2b-f3-f4.uf2 "
+                  "(BOOTSEL), or unplug\n[usb ] and replug it by hand.")
         else:
             print("[usb ] sparito ma MAI ricomparso entro 10 s: scollega e "
                   "ricollega a mano.")
         return 1
 
     if args.selftest is None and args.ascolta is None:
-        ap.error("serve --selftest (banco di prova) oppure --ascolta (payload nel gioco)")
+        ap.error("need --selftest (test bench) or --ascolta (payload in the game)")
     if args.selftest is not None and args.ascolta is not None:
         ap.error("--selftest e --ascolta si escludono: uno parla, l'altro sta zitto")
 
@@ -992,28 +992,28 @@ def main():
     finally:
         link.close()
 
-    print("\nriassunto del selftest:")
+    print("\nselftest summary:")
     print(f"  ping spediti           : {sent}")
     print(f"  echi tornati           : {echoed}")
-    print(f"  ping autonomi del GBA  : {seen_gba_pings}")
+    print(f"  GBA self-pings        : {seen_gba_pings}")
     if strani:
-        print(f"  frame ping non attesi  : {strani}")
+        print(f"  unexpected ping frames: {strani}")
     print(f"  {link.stats()}")
     d = link.deframer
     if d.frame_err == 0 and echoed == sent and sent > 0:
         print("  -> canale integro e TUTTI gli echi tornati: transport a posto")
     elif d.frame_err == 0 and echoed:
-        print(f"  -> CANALE INTEGRO (0 errori di frame): i {sent - echoed} echi"
-              " mancanti sono collisioni sul TX del GBA (buffer singolo, il suo"
-              " ping e l'eco si contendono lo slot: txFull sul banco), non"
-              " perdite del canale")
+        print(f"  -> CHANNEL CLEAN (0 frame errors): the {sent - echoed} missing echoes"
+              " are collisions on the GBA TX (single buffer, its own"
+              " ping and the echo fight for the slot: txFull on the bench), not"
+              " channel losses")
     elif echoed:
-        print("  -> echi parziali E errori di frame: il canale perde, guarda"
-              " parole/s contro la riga 0 del GBA")
+        print("  -> partial echoes AND frame errors: the channel loses data, compare"
+              " words/s with line 0 of the GBA")
     else:
         # "nessun eco" ha almeno tre cause diverse e da solo non ne distingue
         # nessuna: qui si guarda che cosa c'era davvero sul filo.
-        print("  -> nessun eco. Che cosa e' arrivato, invece:")
+        print("  -> no echo. What arrived instead:")
         print(link.diagnosi_linea())
 
 

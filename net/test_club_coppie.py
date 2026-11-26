@@ -264,7 +264,7 @@ class TestQuattroClient(unittest.TestCase):
             self.assertEqual(x.usb.entrate, 0, "il Pico di %d e' entrato" % x.peer_id)
         self.assertIsNone(a.club_acc.partner)
         self.assertIsNone(a.usb.ruolo)               # nessun ruolo a caso
-        self.assertTrue(any("CON CHI?" in riga for riga in a.righe))
+        self.assertTrue(any("WITH WHOM?" in riga for riga in a.righe))
         # Poi il 33 sceglie l'11 dal sito: entra lui, e la coppia parte.
         c.club_con(11)
         r.gira()

@@ -134,7 +134,7 @@ class TestSlot(unittest.TestCase):
         self.assertIn(4, b.pos_amici)
         # e l'avviso e' UNA riga, non una per evento
         b.heal_and_deliver(4, evento(EV_SYNC, seq=2))
-        avvisi = [r for r in b.righe if "SENZA avatar" in r]
+        avvisi = [r for r in b.righe if "NO avatar" in r]
         self.assertEqual(len(avvisi), 1)
 
     def test_bye_libera_lo_slot_e_timbra_il_via(self):
@@ -193,7 +193,7 @@ class TestSlot(unittest.TestCase):
         b.righe.clear()
         b.heal_and_deliver(7, evento(EV_SYNC))          # torna subito
         self.assertEqual(b.flap, 1)
-        self.assertTrue(any("VA E VIENE" in r for r in b.righe),
+        self.assertTrue(any("KEEPS DROPPING" in r for r in b.righe),
                         "il ritorno lampo non e' stato detto: %s" % b.righe)
         # e NON si dice la riga normale, che darebbe l'idea di un amico nuovo
         self.assertFalse(any("-> avatar slot" in r for r in b.righe))
@@ -219,7 +219,7 @@ class TestSlot(unittest.TestCase):
             b.heal_and_deliver(7, evento(EV_SYNC))
             self._bye(b, 7)
         self.assertEqual(b.flap, 11)                    # il primo giro non conta
-        righe = [r for r in b.righe if "VA E VIENE" in r]
+        righe = [r for r in b.righe if "KEEPS DROPPING" in r]
         self.assertEqual(len(righe), 2)                 # la n. 1 e la n. 10
 
 

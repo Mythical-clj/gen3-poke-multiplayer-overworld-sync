@@ -207,7 +207,7 @@ class Multiboot:
         w = self.link.read_word(timeout=timeout)
         if w is None:
             raise MultibootError(
-                f"nessuna risposta dal GBA entro {timeout:.0f} s (fase {fase}). "
+                f"no response from the GBA within {timeout:.0f} s (phase {fase}). "
                 "Il master ha smesso di clockare, oppure il canale e' caduto.")
         self.recv += 1
         # Su questo progetto chi esegue e chi legge il codice non sono la
@@ -237,24 +237,24 @@ class Multiboot:
                  if (crc_step(crc_dati, hh | (rr << 8) | 0xFF000000 | 0xFF0000)
                      & 0xFFFF) == gba]
         if buoni:
-            print(f"[mb  ] -> con rr = {[f'0x{r:02X}' for r in buoni]} il CRC "
-                  "sarebbe tornato: i DATI erano giusti, e' rr a essere stato "
-                  "letto male.")
+            print(f"[mb  ] -> con rr = {[f'0x{r:02X}' for r in buoni]} the CRC "
+                  "would have matched: the DATA was right, rr was the one "
+                  "misread.")
         else:
-            print("[mb  ] -> nessun rr avrebbe fatto tornare il CRC: i dati "
-                  "decifrati dal GBA sono diversi dai nostri, quindi e' il "
-                  "SEME (cioe' cc) a essere sbagliato, non rr.")
+            print("[mb  ] -> no rr would have made the CRC match: the data "
+                  "decrypted by the GBA differs from ours, so the "
+                  "SEED (that is cc) is wrong, not rr.")
         if getattr(self, "coda73", None):
-            print("[mb  ] ultime 0x73xx prima dei dati: "
+            print("[mb  ] last 0x73xx before the data: "
                   + " ".join(f"0x{v:04X}" for v in self.coda73)
-                  + f"   (diverse da cc: "
+                  + f"   (different from cc: "
                   + " ".join(f"0x{v:04X}" for v in getattr(self, "nonc", []))
                   + ")")
 
     def dump_trace(self):
         if not self.trace:
             return
-        print("[mb  ] ultime risposte del GBA (fase: valore):")
+        print("[mb  ] last answers from the GBA (phase: value):")
         riga = []
         for fase, w in self.trace:
             riga.append(f"{fase}:{w:04X}")
@@ -339,13 +339,13 @@ class Multiboot:
                                   for v, n in top))
             dom, ndom = top[0]
             if dom in (0xFFFF, 0x7FFF) and ndom * 10 >= tot * 9:
-                self._log("  -> linea alta e viva: NESSUNO risponde "
-                          "(non e' il pin: e' il GBA che non e' in attesa)")
+                self._log("  -> line high and alive: NOBODY answers "
+                          "(it is not the pin: the GBA is not waiting)")
             elif dom == 0x0000 and ndom * 10 >= tot * 9:
-                self._log("  -> quasi solo zeri: di solito e' il FIRMWARE "
-                          "del Pico (serve celio.uf2 di questo progetto, "
-                          "anche su un GB-Link); piu' di rado SD sul pin "
-                          "sbagliato o filo assente")
+                self._log("  -> almost only zeros: usually the Pico FIRMWARE "
+                          "(this project's celio.uf2 is needed, "
+                          "even on a GB-Link); less often SD on the wrong "
+                          "pin or a missing wire")
         raise MultibootError(
             "il GBA non ha mai risposto 0x7202 al detect.\n"
             "       Le cause, in ordine di probabilita':\n"
@@ -635,7 +635,7 @@ class Multiboot:
             self.reset_counters()
             self.restarts = tentativo - 1
             if tentativo > 1:
-                self._log(f"tentativo {tentativo} di {self.max_attempts}")
+                self._log(f"attempt {tentativo} of {self.max_attempts}")
                 # GBATEK: se il detect fallisce si aspetta 1/16 s e si
                 # RICOMINCIA la sessione, non si insiste. Qui vale per ogni
                 # fallimento: se il flusso e' scivolato, riportare il PIO allo
@@ -705,7 +705,7 @@ def stampa_rapporto(st):
     print("  desync            : %d" % st["desync"])
     print("  riavvii           : %d" % st["riavvii"])
     if st["desync"] == 0 and st["riavvii"] == 0:
-        print("  -> pulito: nessuna parola spuria, nessun riavvio")
+        print("  -> clean: no stray words, no restart")
 
 
 # ---------------------------------------------------------------------------
@@ -1141,9 +1141,9 @@ def main():
     if args.autotest:
         return autotest()
     if not args.rom:
-        ap.error("serve il file .gba (oppure --autotest)")
+        ap.error("need the .gba file (or --autotest)")
     if not os.path.isfile(args.rom):
-        print(f"file non trovato: {args.rom}")
+        print(f"file not found: {args.rom}")
         return 2
 
     rom = open(args.rom, "rb").read()
@@ -1162,7 +1162,7 @@ def main():
     try:
         buttate = link.drain_rx(0.5)
         if buttate:
-            print(f"[mb  ] {buttate} parole di rumore buttate prima di iniziare")
+            print(f"[mb  ] {buttate} noise words thrown away before starting")
         mb = Multiboot(link, palette=args.palette, wait_ms=args.wait_ms,
                        timing_fast=args.timing, timing_wait=timing_wait,
                        max_attempts=args.tentativi, detect_s=args.detect_s)
@@ -1193,21 +1193,21 @@ def main():
             # sempre al rosso: la gara, se c'e', e' solo qui. Mezzo secondo
             # e' un'eternita' per il salto del BIOS e non costa niente.
             time.sleep(0.5)
-            print("\n[mb  ] riavvio il Pico (F-4), al posto dello "
-                  "scollega/ricollega...")
+            print("\n[mb  ] restarting the Pico (F-4), instead of "
+                  "unplug/replug...")
             sparito, ricomparso = link.reboot_pico()
             if ricomparso:
-                print("[mb  ] Pico sparito e ricomparso dal bus: canale pulito."
-                      "\n[mb  ] Inserisci la cartuccia e lancia usb_link.py "
-                      "senza toccare il cavo.")
+                print("[mb  ] Pico vanished and reappeared on the bus: channel clean."
+                      "\n[mb  ] Insert the cartridge and run usb_link.py "
+                      "without touching the cable.")
             elif not sparito:
-                print("[mb  ] il Pico NON e' mai sparito dal bus: il firmware "
-                      "non ha la F-4 (serve >= 2.0.5).\n"
-                      "[mb  ] Flasha hw/firmware/celio-f1f2b-f3-f4.uf2 "
-                      "(BOOTSEL), oppure scollega e ricollega a mano.")
+                print("[mb  ] the Pico NEVER disappeared from the bus: its firmware "
+                      "does not have F-4 (needs >= 2.0.5).\n"
+                      "[mb  ] Flash hw/firmware/celio-f1f2b-f3-f4.uf2 "
+                      "(BOOTSEL), or unplug and replug by hand.")
             else:
-                print("[mb  ] il Pico e' sparito ma NON e' ricomparso entro "
-                      "10 s: scollega e ricollega a mano.")
+                print("[mb  ] the Pico vanished but did NOT reappear within "
+                      "10 s: unplug and replug by hand.")
         return 0
     finally:
         link.close()

@@ -140,7 +140,7 @@ class TestSintesi(unittest.TestCase):
     def test_avviso_porta_chiusa_e_club(self):
         self.p.riga("gioca", "[client 1]       il TUO GBA ha chiuso la porta "
                              "seriale: sei fuori dall'overworld")
-        self.assertIn("fuori dal mondo di gioco", self.p.sintesi["avviso"])
+        self.assertIn("outside the game world", self.p.sintesi["avviso"])
 
         self.p.riga("gioca", "[client 1] [club ] il TUO GBA e' entrato al "
                              "Cable Club")
@@ -278,7 +278,7 @@ class TestServer(unittest.TestCase):
         self.post("/api/config", {"ruolo": "amico", "relay": "1.2.3.4:9000"})
         r = self.post("/api/avvia", {"cosa": "relay"})
         self.assertFalse(r["ok"])
-        self.assertIn("OSPITA", r["messaggio"])
+        self.assertIn("HOST", r["messaggio"])
         # si rimette com'era, per non lasciare il file di config sporco
         self.post("/api/config", {"ruolo": "ospite", "relay": "127.0.0.1:9000"})
 

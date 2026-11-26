@@ -222,8 +222,8 @@ class FintoGba:
             # frame di Task_TriggerHandshake), poi parte lo scambio dati
             self._dopo(RITMO_PASSO_S, self._stabilisci)
         elif cmd == CMD_SET_MODE_MASTER:
-            self.log("[finto] !!! mi e' arrivato il ruolo MASTER: il finto "
-                     "recita il peer 2 (slave). Lancialo con --peer-id 2.")
+            self.log("[finto] !!! I was given the MASTER role: the fake "
+                     "plays peer 2 (slave). Start it with --peer-id 2.")
         elif cmd == CMD_CONNECT_LINK:
             pass                   # per lo slave e' un no-op anche sul Pico
 
@@ -240,7 +240,7 @@ class FintoGba:
         if w[0] == LINKCMD_INIT_BLOCK:
             self._rx_size = w[1]
             self._rx_pos = 0
-            self.log("[finto] il TUO GBA inizia un blocco da %d byte" % w[1])
+            self.log("[finto] YOUR GBA starts a block of %d bytes" % w[1])
         elif w[0] == LINKCMD_CONT_BLOCK:
             self._rx_pos += 14
             if self._rx_size and self._rx_pos >= self._rx_size:
@@ -260,11 +260,11 @@ class FintoGba:
                                               LINK_KEY_CODE_EXIT_ROOM))
                 self._dopo(RITMO_PASSO_S,
                            lambda: self.stati.append(LINK_ST_CLOSED))
-                self.log("[finto] il TUO GBA esce dalla saletta: chiudo")
+                self.log("[finto] YOUR GBA leaves the room: closing")
             elif not self._tasti_da:
                 self._tasti_da = time.monotonic()
-                self.log("[finto] SALETTA RAGGIUNTA: tasti in scambio. Il "
-                         "fantasma sta fermo; la prova e' gia' vinta.")
+                self.log("[finto] ROOM REACHED: keys are being exchanged. The "
+                         "ghost stands still; the test is already won.")
         elif w[0] == LINKCMD_READY_CLOSE_LINK and not self._chiusura_fatta:
             # NON e' la fine: e' il gioco che chiude il link per cambiare
             # meccanica (ci si e' seduti alla macchina degli scambi).
@@ -297,8 +297,8 @@ class FintoGba:
         self._chiusura_fatta = False
         self._tasti_da = 0.0
         self.log("[finto] ==============================================")
-        self.log("[finto] il TUO GBA ha chiuso il link per cambiare "
-                 "meccanica: lo riapro come il Pico vero (giro %d)"
+        self.log("[finto] YOUR GBA closed the link to change "
+                 "mechanism: reopening it like the real Pico (round %d)"
                  % (self.giri + 1))
         self.stati.append(LINK_ST_RECONNECTING)
         self._dopo(RITMO_RICONNESSIONE_S,
@@ -318,8 +318,8 @@ class FintoGba:
         ne arrivano meno di 7, il ladro e' ancora vivo."""
         fuori = [pacchetto(LINKCMD_SEND_LINK_TYPE, self._link_type)]
         fuori += blocco_in_cont(blocco_giocatore(self._link_type), 0)
-        self.log("[finto] mando la raffica del master: LINK_TYPE + blocco "
-                 "giocatore (%d comandi)" % len(fuori))
+        self.log("[finto] sending the master burst: LINK_TYPE + player "
+                 "block (%d commands)" % len(fuori))
         for i, b in enumerate(fuori):
             self._dopo(RITMO_BURST_S * i, lambda b=b: self.blocchi.append(b))
 
@@ -332,21 +332,21 @@ class FintoGba:
             self._giocatore_ok = True
             self.riaperture_ok += 1
             self.log("[finto] ==============================================")
-            self.log("[finto] LA RIAPERTURA HA FUNZIONATO (giro %d): il TUO "
-                     "GBA ha rifatto la scala e i dati passano. E' la prova "
-                     "della correzione del 2026-08-20." % (self.giri + 1))
+            self.log("[finto] THE REOPEN WORKED (round %d): YOUR "
+                     "GBA redid the ladder and data is flowing. This proves "
+                     "the 2026-08-20 fix." % (self.giri + 1))
         elif not self.giri and not self._giocatore_ok:
             self._giocatore_ok = True
             self.log("[finto] ==============================================")
-            self.log("[finto] BLOCCO GIOCATORE del TUO GBA completo (%d "
-                     "byte): la raffica e' passata TUTTA. Chiedo le schede."
+            self.log("[finto] PLAYER BLOCK of YOUR GBA complete (%d "
+                     "bytes): the whole burst went through. Asking for the cards."
                      % size)
             self._dopo(RITMO_PASSO_S, self._chiedi_schede)
         elif not self.vittoria:
             self.vittoria = True
             self.log("[finto] ==============================================")
-            self.log("[finto] SCHEDA del TUO GBA ricevuta per intera: LINKUP "
-                     "COMPLETO. Il tuo GBA ora entra nella saletta.")
+            self.log("[finto] CARD from YOUR GBA received in full: LINKUP "
+                     "COMPLETE. Your GBA now walks into the room.")
 
     def _chiedi_schede(self):
         fuori = [pacchetto(LINKCMD_SEND_BLOCK_REQ, 2)]      # BLOCK_REQ_SIZE_100
@@ -458,10 +458,10 @@ def main():
         sock.sendto(pack(T_CLUB, args.peer_id, args.room, next_seq(), body),
                     relay)
 
-    log("[finto] partner finto per la stanza %d su %s (peer %d)"
+    log("[finto] fake partner for room %d on %s (peer %d)"
         % (args.room, args.relay, args.peer_id))
-    log("[finto] aspetto che il TUO GBA parli con la signorina (scegli "
-        "SCAMBIO): il resto lo faccio io. Ctrl+C per uscire.")
+    log("[finto] waiting for YOUR GBA to talk to the attendant (choose "
+        "TRADE): I handle the rest. Ctrl+C to quit.")
 
     sess = None
     finto = None
@@ -481,12 +481,12 @@ def main():
         if (args.esci_dopo and not esci_quando and finto is not None
                 and getattr(finto, "vittoria", False)):
             esci_quando = adesso + args.esci_dopo
-            log("[finto] esco fra %.0f s (--esci-dopo)" % args.esci_dopo)
+            log("[finto] leaving in %.0f s (--esci-dopo)" % args.esci_dopo)
         if esci_quando and not uscito and adesso >= esci_quando:
             uscito = True
             send_club(club_leave(sess.epoca if sess else 0))
-            log("[finto] ESCO dalla saletta (LEAVE): l'altro lato deve "
-                "accompagnare fuori il suo gioco dalla porta")
+            log("[finto] LEAVING the room (LEAVE): the other side must "
+                "walk its game out through the door")
 
         for _ in pronti:
             try:
@@ -511,7 +511,7 @@ def main():
                 if adesso < riaggancio_dopo:
                     continue
                 log("[finto] " + "=" * 50)
-                log("[finto] il TUO GBA e' al Cable Club: entro in scena")
+                log("[finto] YOUR GBA is at the Cable Club: I am stepping in")
                 finto = FintoGba(log, coppie=args.coppie)
                 sess = ClubSession(master=(args.peer_id == 1), dev=finto,
                                    send_net=send_club, log=log,
@@ -524,8 +524,8 @@ def main():
                 sess.on_net_leave(epoca)
             elif sub == CLUB_STATUS:
                 if payload[2] and payload[2] != VERSIONE_CLUB:
-                    log("[finto] ATTENZIONE: il client dall'altra parte ha "
-                        "la versione %d, questo banco la %d"
+                    log("[finto] WARNING: the client on the other side has "
+                        "version %d, this bench has %d"
                         % (payload[2], VERSIONE_CLUB))
                 sess.on_net_status(epoca, payload[0], payload[1], payload[4])
             elif sub == CLUB_DATA:
@@ -557,8 +557,8 @@ def main():
                                     if finto.vittoria else
                                     "prova NON completata: guarda quale "
                                     "comando manca qui sopra."))
-                log("[finto] pronto per un altro giro (riparla con la "
-                    "signorina quando vuoi).")
+                log("[finto] ready for another round (talk to the "
+                    "attendant again whenever you like).")
                 sess = None
                 finto = None
                 riaggancio_dopo = adesso + 3.0

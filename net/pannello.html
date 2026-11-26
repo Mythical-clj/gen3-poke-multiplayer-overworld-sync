@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>gen3-poke-multiplayer — Pannello</title>
+<title>gen3-poke-multiplayer — Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="img/favicon.png">
 <!--
@@ -271,7 +271,7 @@
     </div>
     <div>
       <h1>gen3-poke-multiplayer</h1>
-      <p class="sub" id="sottotitolo">Camminate insieme in Pokémon Smeraldo, su GBA vero.</p>
+      <p class="sub" id="sottotitolo">Walk together in Pokémon Emerald, on a real GBA.</p>
     </div>
     <div class="targhe">
       <span class="targa"><span class="led"></span>127.0.0.1:7411</span>
@@ -284,25 +284,25 @@
 
   <section class="stato">
     <div class="scheda presenza">
-      <p class="etichetta">Il tuo GBA</p>
-      <p class="grosso" id="st-gba">Fermo</p>
-      <p class="riga-mono" id="st-mappa">programma non caricato</p>
-      <span class="spia" id="spia-gba"><i></i><em id="spia-gba-testo" style="font-style:normal">in attesa</em></span>
+      <p class="etichetta">Your GBA</p>
+      <p class="grosso" id="st-gba">Stopped</p>
+      <p class="riga-mono" id="st-mappa">program not loaded</p>
+      <span class="spia" id="spia-gba"><i></i><em id="spia-gba-testo" style="font-style:normal">waiting</em></span>
     </div>
 
     <div class="scheda presenza">
-      <p class="etichetta">L'amico</p>
-      <p class="grosso" id="st-amico">In attesa</p>
-      <p class="riga-mono" id="st-stanza">stanza —</p>
-      <span class="spia" id="spia-amico"><i></i><em id="spia-amico-testo" style="font-style:normal">in attesa</em></span>
+      <p class="etichetta">Your friend</p>
+      <p class="grosso" id="st-amico">Waiting</p>
+      <p class="riga-mono" id="st-stanza">room —</p>
+      <span class="spia" id="spia-amico"><i></i><em id="spia-amico-testo" style="font-style:normal">waiting</em></span>
     </div>
 
     <div class="scheda canale">
-      <p class="etichetta">Canale</p>
-      <div class="cifra"><b id="st-parole">—</b><span>parole/s</span></div>
+      <p class="etichetta">Channel</p>
+      <div class="cifra"><b id="st-parole">—</b><span>words/s</span></div>
       <div class="conti">
-        <div><small>Inviati</small><b id="st-inviati">0</b></div>
-        <div><small>Ricevuti</small><b id="st-ricevuti">0</b></div>
+        <div><small>Sent</small><b id="st-inviati">0</b></div>
+        <div><small>Received</small><b id="st-ricevuti">0</b></div>
       </div>
     </div>
   </section>
@@ -310,16 +310,16 @@
   <div id="riga-club" hidden>
     <div>
       <p class="titolo" id="club-titolo">Cable Club</p>
-      <p class="sotto" id="club-sotto">sessione in corso</p>
+      <p class="sotto" id="club-sotto">session in progress</p>
     </div>
-    <span class="pillola"><span style="width:7px;height:7px;border-radius:50%;background:#16a06e"></span>scambi e lotte</span>
+    <span class="pillola"><span style="width:7px;height:7px;border-radius:50%;background:#16a06e"></span>trades and battles</span>
   </div>
 
   <div class="due">
     <section class="pannello">
-      <h2>Partita</h2>
-      <p class="aiuto">Prima di premere: <b>slot cartuccia vuoto</b>, cavo collegato, poi accendi il GBA.
-        Dopo il caricamento inserisci la cartuccia a caldo.</p>
+      <h2>Game</h2>
+      <p class="aiuto">Before pressing anything: <b>cartridge slot empty</b>, cable plugged in, then turn the GBA on.
+        After the load, insert the cartridge while it is running.</p>
       <div class="passi">
         <div id="riga-relay"></div>
         <div id="riga-multiboot"></div>
@@ -328,64 +328,64 @@
       <div class="esito" id="esito-azione"></div>
 
       <div class="separa"></div>
-      <p class="etichetta" style="margin-bottom:10px">Attrezzi</p>
+      <p class="etichetta" style="margin-bottom:10px">Tools</p>
       <div class="attrezzi">
-        <button class="minore" onclick="avvia('sblocca')">Sblocca adattatore</button>
-        <button class="minore" id="btn-finto" onclick="toggleFinto()">Prova da solo (partner finto)</button>
-        <a class="minore" href="/mappa.html" target="_blank" style="display:inline-block;background:#30363d;color:#fff;border-radius:6px;padding:8px 14px;text-decoration:none;font-size:15px">Mappa live ↗</a>
-        <button class="minore" onclick="copiaLog(this)">Copia tutto il registro</button>
-        <a class="minore" href="/api/log?scarica=1" style="display:inline-block;background:#30363d;color:#fff;border-radius:6px;padding:8px 14px;text-decoration:none;font-size:15px">Scarica il log completo</a>
-        <button class="minore" onclick="pulisciLog()">Pulisci il log</button>
+        <button class="minore" onclick="avvia('sblocca')">Unjam adapter</button>
+        <button class="minore" id="btn-finto" onclick="toggleFinto()">Test alone (fake partner)</button>
+        <a class="minore" href="/mappa.html" target="_blank" style="display:inline-block;background:#30363d;color:#fff;border-radius:6px;padding:8px 14px;text-decoration:none;font-size:15px">Live map ↗</a>
+        <button class="minore" onclick="copiaLog(this)">Copy the whole log</button>
+        <a class="minore" href="/api/log?scarica=1" style="display:inline-block;background:#30363d;color:#fff;border-radius:6px;padding:8px 14px;text-decoration:none;font-size:15px">Download the full log</a>
+        <button class="minore" onclick="pulisciLog()">Clear the log</button>
       </div>
-      <p class="aiuto" style="margin:12px 0 0">Il <b>partner finto</b> recita l'amico per provare il Cable Club
-        da soli: accendilo insieme alla partita, poi col GBA vai dalla signorina degli <b>scambi</b>.
-        Vittoria = «LINKUP COMPLETO» nel registro e il GBA che entra nella saletta.</p>
+      <p class="aiuto" style="margin:12px 0 0">The <b>fake partner</b> plays your friend so you can test the Cable Club
+        on your own: start it together with the game, then walk your GBA to the <b>trade</b> attendant.
+        Success = «LINKUP COMPLETE» in the log and the GBA walking into the room.</p>
     </section>
 
     <section class="pannello">
-      <h2>Impostazioni</h2>
-      <p class="aiuto">Devono combaciare fra te e il tuo amico: <b>stessa stanza</b> e lo stesso relay.
-        Chi ospita apre la porta sul router.</p>
+      <h2>Settings</h2>
+      <p class="aiuto">These must match between you and your friend: the <b>same room</b> and the same relay.
+        Whoever hosts opens the port on their router.</p>
 
-      <p style="margin:0 0 7px;font-size:11.5px;font-weight:600;color:#3b463f">Chi sei in questa partita</p>
+      <p style="margin:0 0 7px;font-size:11.5px;font-weight:600;color:#3b463f">Who you are in this game</p>
       <div class="scelta">
-        <button id="r-ospite" onclick="setRuolo('ospite')">Ospito io il relay</button>
-        <button id="r-amico" onclick="setRuolo('amico')">Mi collego a un amico</button>
+        <button id="r-ospite" onclick="setRuolo('ospite')">I host the relay</button>
+        <button id="r-amico" onclick="setRuolo('amico')">I connect to a friend</button>
       </div>
 
       <div class="campi">
-        <label class="campo larga"><span>Relay (host:porta)</span>
+        <label class="campo larga"><span>Relay (host:port)</span>
           <input type="text" id="relay" spellcheck="false" placeholder="93.42.10.20:9000">
-          <small class="guida">L'indirizzo del server che smista i pacchetti. Se ospiti tu,
-            diventa da solo <b>127.0.0.1:porta</b>; se ti colleghi, scrivi quello che ti passa
-            chi ospita (o del server pubblico).</small></label>
-        <label class="campo"><span>Stanza (stesso numero per tutti)</span>
+          <small class="guida">The address of the server that passes packets around. If you host,
+            it becomes <b>127.0.0.1:port</b> by itself; if you connect, type the one the
+            host gives you (or the public server's).</small></label>
+        <label class="campo"><span>Room (same number for everyone)</span>
           <input type="number" id="stanza" min="1" max="65535">
-          <small class="guida">La «partita»: si vedono solo i giocatori con lo stesso numero.
-            Un numero qualsiasi fra 1 e 65535, uguale per tutti gli amici.</small></label>
-        <label class="campo"><span>Velocità canale (timing)</span>
+          <small class="guida">The «game»: you only see players with the same number.
+            Any number from 1 to 65535, the same for all friends.</small></label>
+        <label class="campo"><span>Channel speed (timing)</span>
           <input type="number" id="timing" min="1000" max="60000" step="100">
-          <small class="guida">Il periodo con cui l'adattatore scandisce il cavo verso il GBA.
-            <b>7400</b> è il valore misurato che funziona: non toccarlo se il canale va.</small></label>
-        <label class="campo"><span>Il tuo numero (peer)</span>
+          <small class="guida">How often the adapter polls the cable to the GBA.
+            <b>7400</b> is the measured value that works: leave it alone if the channel is fine.</small></label>
+        <label class="campo"><span>Your number (peer)</span>
           <input type="number" id="peer" min="0" max="65534" placeholder="auto">
-          <small class="guida"><b>0 = automatico</b> (ospite→1, amico→2): va bene in due.
-            <b>In tre o più</b> — anche mischiando GBA, emulatori e browser nella stessa
-            stanza — ognuno deve avere un numero DIVERSO: scrivilo qui.</small></label>
-        <label class="campo larga"><span>Cavo</span>
+          <small class="guida"><b>0 = automatic</b> (host→1, friend→2): fine for two players.
+            <b>With three or more</b> — even mixing GBAs, emulators and browsers in the same
+            room — everyone needs a DIFFERENT number: type it here.</small></label>
+        <label class="campo larga"><span>Cable</span>
           <select id="cavo">
-            <option value="auto">automatico</option>
+            <option value="auto">automatic</option>
             <option value="gba">GBA (SD su GP3)</option>
             <option value="gbc">GBC (SD su GP4)</option>
           </select>
-          <small class="guida">Su quale piedino del Pico arriva il segnale SD: dipende dalla
-            saldatura del tuo adattatore. <b>Automatico</b> di norma indovina da solo.</small></label>
+          <small class="guida">Which Pico pin the SD signal arrives on: it depends on how your
+        adapter was soldered. <b>Automatic</b> usually guesses right.</small></label>
       </div>
-      <p class="aiuto" style="margin:12px 0 0">GBA veri, emulatori mGBA e browser giocano
-        <b>insieme</b>: basta stesso relay, stessa stanza e numeri di peer tutti diversi.
-        Per l'emulatore si usa il pacchetto emulatore (o <code>net\run-local.ps1</code>).</p>
+      <p class="aiuto" style="margin:12px 0 0">Real GBAs, mGBA emulators and browsers play
+        <b>together</b>: all you need is the same relay, the same room and different peer numbers.
+        For the emulator use the emulator package (or <code>net\run-local.ps1</code>).</p>
 
-      <div style="margin-top:16px"><button class="salva" onclick="salva()">Salva impostazioni</button></div>
+      <div style="margin-top:16px"><button class="salva" onclick="salva()">Save settings</button></div>
       <div class="esito" id="esito-config"></div>
     </section>
   </div>
@@ -395,17 +395,17 @@
        file delle posizioni; qui si mostrano gli ultimi. Per SCRIVERE serve il
        sito (il pannello web o la pagina della stanza, anche da spettatore). -->
   <section class="pannello" id="chat-sez" style="margin-top:18px" hidden>
-    <h2>Chat della stanza <span id="chat-stanza" style="font:12.5px var(--mono);color:var(--tenue2)"></span></h2>
-    <p class="aiuto" style="margin-bottom:10px">Sola lettura: quello che gli amici scrivono dal sito arriva anche qui.
-      Per rispondere apri il sito e premi «Guarda soltanto» (non occupa un posto in stanza).</p>
+    <h2>Room chat <span id="chat-stanza" style="font:12.5px var(--mono);color:var(--tenue2)"></span></h2>
+    <p class="aiuto" style="margin-bottom:10px">Read-only: what your friends type on the website shows up here too.
+      To reply, open the website and press «Just watch» (it does not take a spot in the room).</p>
     <div id="chat-lista" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;font-size:13.5px;line-height:1.45;word-break:break-word"></div>
   </section>
 
   <section class="registro">
     <div class="barra-log">
-      <h2>Registro</h2>
-      <label><input type="checkbox" id="autoscroll" checked> Segui le novità</label>
-      <label><input type="checkbox" id="solo-gioca"> Solo la partita</label>
+      <h2>Log</h2>
+      <label><input type="checkbox" id="autoscroll" checked> Follow new lines</label>
+      <label><input type="checkbox" id="solo-gioca"> Game only</label>
       <div class="legenda">
         <span style="color:#7fb2ff"><i></i>relay</span>
         <span style="color:#7fd7a0"><i></i>gioca</span>
@@ -417,8 +417,8 @@
     <div id="log"></div>
   </section>
 
-  <footer>Il pannello lancia gli stessi programmi dei vecchi .bat — se qualcosa
-    va storto, quelli restano lì e funzionano.</footer>
+  <footer>The panel runs the same programs as the old .bat files — if something
+    goes wrong, those are still there and still work.</footer>
 </main>
 
 <script>
@@ -454,10 +454,10 @@ async function tick() {
     disegnaPassi();
     aggiungiRighe(s.righe);
     $("sottotitolo").textContent =
-      "Camminate insieme in Pokémon Smeraldo, su GBA vero.";
+      "Walk together in Pokémon Emerald, on a real GBA.";
   } catch (e) {
     $("sottotitolo").textContent =
-      "Pannello non raggiungibile: la finestra nera è stata chiusa?";
+      "Panel unreachable: was the black window closed?";
   }
 }
 
@@ -494,7 +494,7 @@ async function salva() {
     cavo: $("cavo").value
   });
   const e = $("esito-config");
-  e.textContent = r.ok ? "Impostazioni salvate." : r.messaggio;
+  e.textContent = r.ok ? "Settings saved." : r.messaggio;
   e.className = "esito" + (r.ok ? "" : " male");
   if (r.ok) { configSporca = false; applicaConfig(r.config); }
   setTimeout(() => { if (r.ok) e.textContent = ""; }, 3000);
@@ -513,8 +513,8 @@ function bottone(cosa, numero, titolo, sotto, sottoVivo) {
   b.innerHTML =
     '<span class="num">' + (vivo ? "■" : numero) + "</span>" +
     '<span class="testo"><b>' + titolo + "</b><small>" +
-      (vivo ? (sottoVivo || "in corso…") : sotto) + "</small></span>" +
-    '<span class="fine">' + (vivo ? "Ferma" : "Avvia") + "</span>";
+      (vivo ? (sottoVivo || "running…") : sotto) + "</small></span>" +
+    '<span class="fine">' + (vivo ? "Stop" : "Start") + "</span>";
   return b;
 }
 
@@ -524,26 +524,26 @@ function disegnaPassi() {
   const r = $("riga-relay");
   r.innerHTML = "";
   if (ospite) {
-    r.appendChild(bottone("relay", "0", "Accendi il relay",
-      "Serve solo a chi ospita. Lascialo acceso per tutta la partita.",
-      "in ascolto: lascialo acceso per tutta la partita."));
+    r.appendChild(bottone("relay", "0", "Start the relay",
+      "Only needed by the host. Leave it running for the whole game.",
+      "listening: leave it running for the whole game."));
   }
 
   const m = $("riga-multiboot"); m.innerHTML = "";
-  m.appendChild(bottone("multiboot", "1", "Carica il gioco nel GBA",
-    "Slot vuoto, GBA acceso. Schermo rosso ➜ inserisci la cartuccia ➜ verde.",
-    "caricamento in corso: schermo rosso ➜ cartuccia ➜ verde."));
+  m.appendChild(bottone("multiboot", "1", "Load the game into the GBA",
+    "Empty slot, GBA on. Red screen ➜ insert the cartridge ➜ green.",
+    "loading: red screen ➜ cartridge ➜ green."));
 
   const g = $("riga-gioca"); g.innerHTML = "";
-  g.appendChild(bottone("gioca", "2", "Gioca",
-    "Da premere quando sei in partita, all'aperto.",
-    "partita in corso."));
+  g.appendChild(bottone("gioca", "2", "Play",
+    "Press when you are in the game, outdoors.",
+    "game running."));
 
   const f = $("btn-finto");
   if (f) {
     const vivoF = processi.finto && processi.finto.vivo;
-    f.textContent = vivoF ? "Ferma il partner finto"
-                          : "Prova da solo (partner finto)";
+    f.textContent = vivoF ? "Stop the fake partner"
+                          : "Test alone (fake partner)";
   }
 }
 
@@ -554,7 +554,7 @@ function toggleFinto() {
 
 async function copiaLog(bottone) {
   const originale = bottone.textContent;
-  bottone.textContent = "Copio...";
+  bottone.textContent = "Copying...";
   try {
     const testo = await (await fetch("/api/log")).text();
     // navigator.clipboard c'e' solo in contesto sicuro: 127.0.0.1 lo e', ma
@@ -576,10 +576,10 @@ async function copiaLog(bottone) {
       document.body.removeChild(ta);
     }
     const righe = testo.split("\n").length - 1;
-    bottone.textContent = fatto ? ("Copiato! (" + righe + " righe)")
-                                : "Non ci riesco: apri /api/log";
+    bottone.textContent = fatto ? ("Copied! (" + righe + " lines)")
+                                : "Could not copy: open /api/log";
   } catch (e) {
-    bottone.textContent = "Errore: apri /api/log";
+    bottone.textContent = "Error: open /api/log";
   }
   setTimeout(() => { bottone.textContent = originale; }, 2500);
 }
@@ -611,21 +611,21 @@ function disegnaStato(s) {
   const inPartita = processi.gioca && processi.gioca.vivo;
 
   // il tuo GBA
-  $("st-gba").textContent = s.mappa ? "In partita"
-                                    : (s.caricato ? "Programma caricato" : "Fermo");
+  $("st-gba").textContent = s.mappa ? "In game"
+                                    : (s.caricato ? "Program loaded" : "Stopped");
   $("st-mappa").textContent = s.mappa
-    ? ("mappa " + s.mappa + (s.caricato ? " · programma caricato" : ""))
-    : (s.caricato ? "in attesa che dica dove sei"
-                  : "programma non caricato: premi il passo 1");
-  spia("spia-gba", s.mappa ? "attivo" : (s.caricato ? "pronto" : "spento"),
+    ? ("map " + s.mappa + (s.caricato ? " · program loaded" : ""))
+    : (s.caricato ? "waiting for it to say where you are"
+                  : "program not loaded: press step 1");
+  spia("spia-gba", s.mappa ? "active" : (s.caricato ? "ready" : "off"),
        s.mappa ? "ok" : (inPartita ? "no" : ""));
 
   // l'amico
-  $("st-amico").textContent = s.amico ? "Collegato" : "In attesa";
+  $("st-amico").textContent = s.amico ? "Connected" : "Waiting";
   const stanza = config ? config.stanza : "—";
   const peer = config ? (config.ruolo === "ospite" ? 1 : 2) : "—";
-  $("st-stanza").textContent = "stanza " + stanza + " · sei il peer " + peer;
-  spia("spia-amico", s.amico ? "vivo" : "in attesa",
+  $("st-stanza").textContent = "room " + stanza + " · you are peer " + peer;
+  spia("spia-amico", s.amico ? "alive" : "waiting",
        s.amico ? "ok" : (inPartita ? "no" : ""));
 
   // canale
@@ -637,9 +637,9 @@ function disegnaStato(s) {
   const club = $("riga-club");
   if (s.club) {
     club.hidden = false;
-    $("club-titolo").textContent = "Cable Club — sessione in corso";
+    $("club-titolo").textContent = "Cable Club — session in progress";
     $("club-sotto").textContent = "ruolo " + String(s.club).toUpperCase() +
-      " · inviati " + s.inviati + " · ricevuti " + s.ricevuti;
+      " · sent " + s.inviati + " · received " + s.ricevuti;
   } else {
     club.hidden = true;
   }
@@ -667,7 +667,7 @@ function aggiungiRighe(righe) {
     // "[relay] [relay] in ascolto", che sembra un difetto e non lo e'.
     let testo = r.testo.replace(new RegExp("^\\[" + r.chi + "\\]\\s*"), "");
     const d = document.createElement("span");
-    const grave = /!!!|FALLIT|ERRORE|non riesco|NESSUN/i.test(testo);
+    const grave = /!!!|FAILED|FALLIT|ERROR|ERRORE|cannot|NO EMULATOR|NESSUN/i.test(testo);
     d.className = "r " + r.chi + (grave ? " grave" : "");
     d.innerHTML = '<span class="chi">[' + r.chi + "]</span> " +
                   testo.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -701,7 +701,7 @@ async function leggiChat() {
     voci.sort((a, b) => (a.t || 0) - (b.t || 0));
     const firma = voci.map(m => m.id).join(",");
     $("chat-sez").hidden = false;
-    $("chat-stanza").textContent = stanza ? "· stanza " + stanza : "";
+    $("chat-stanza").textContent = stanza ? "· room " + stanza : "";
     if (firma === chatFirma) return;
     chatFirma = firma;
     const box = $("chat-lista");
@@ -718,7 +718,7 @@ async function leggiChat() {
       chi.style.color = "var(--verde)";
       riga.appendChild(ora); riga.appendChild(chi);
       riga.appendChild(document.createTextNode(
-        (m.pos ? "(posizione: mappa " + m.pos.g + "." + m.pos.n + " " + m.pos.x + "," + m.pos.y + ") " : "") + (m.testo || "")));
+        (m.pos ? "(position: map " + m.pos.g + "." + m.pos.n + " " + m.pos.x + "," + m.pos.y + ") " : "") + (m.testo || "")));
       box.appendChild(riga);
     });
     if (inFondo) box.scrollTop = box.scrollHeight;

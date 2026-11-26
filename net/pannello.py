@@ -105,7 +105,7 @@ class Processo:
 
     def avvia(self, argv):
         if self.vivo():
-            return False, "gia' in corso"
+            return False, "already running"
         self.uscita = None
         try:
             self.proc = subprocess.Popen(
@@ -119,11 +119,11 @@ class Processo:
                 errors="replace",
             )
         except Exception as exc:
-            self.pannello.riga(self.nome, "AVVIO FALLITO: %s" % exc)
+            self.pannello.riga(self.nome, "START FAILED: %s" % exc)
             return False, str(exc)
 
         self.avviato = time.time()
-        self.pannello.riga(self.nome, "avviato: %s" % " ".join(argv[1:]))
+        self.pannello.riga(self.nome, "started: %s" % " ".join(argv[1:]))
         self.lettore = threading.Thread(target=self._leggi, daemon=True,
                                         name="pannello-%s" % self.nome)
         self.lettore.start()
@@ -138,12 +138,12 @@ class Processo:
             pass
         code = proc.wait()
         self.uscita = code
-        self.pannello.riga(self.nome, "--- terminato (uscita %s) ---" % code)
+        self.pannello.riga(self.nome, "--- finished (exit code %s) ---" % code)
 
     def ferma(self):
         if not self.vivo():
             return False
-        self.pannello.riga(self.nome, "chiusura richiesta dal pannello")
+        self.pannello.riga(self.nome, "stop requested by the panel")
         try:
             self.proc.terminate()
             try:
@@ -151,7 +151,7 @@ class Processo:
             except subprocess.TimeoutExpired:
                 self.proc.kill()
         except Exception as exc:
-            self.pannello.riga(self.nome, "chiusura problematica: %s" % exc)
+            self.pannello.riga(self.nome, "problem while stopping: %s" % exc)
         return True
 
 
@@ -175,7 +175,7 @@ class Pannello:
             self.log_path = os.path.join(LOG_DIR, nome)
             self._log_fh = open(self.log_path, "a", encoding="utf-8")
         except Exception as exc:
-            print("registro su file non disponibile: %s" % exc)
+            print("log file not available: %s" % exc)
 
         self.proc = {
             "relay": Processo("relay", self),
@@ -246,7 +246,7 @@ class Pannello:
         except FileNotFoundError:
             pass
         except Exception as exc:
-            print("[pannello] config illeggibile (%s): uso i valori di default"
+            print("[panel] unreadable config (%s): using the defaults"
                   % exc)
 
     def salva_config(self):
@@ -261,49 +261,49 @@ class Pannello:
 
         ruolo = nuova.get("ruolo", c["ruolo"])
         if ruolo not in ("ospite", "amico"):
-            return False, "ruolo sconosciuto"
+            return False, "unknown role"
         c["ruolo"] = ruolo
 
         relay = str(nuova.get("relay", c["relay"])).strip()
         relay_ws = bool(RE_RELAY_WS.match(relay))
         if not relay_ws:
             if not RE_RELAY.match(relay):
-                return False, ("indirizzo del relay non valido: serve "
-                               "'host:porta' (per esempio 93.42.10.20:9000) "
-                               "oppure un indirizzo WebSocket "
+                return False, ("invalid relay address: it must be "
+                               "'host:port' (for example 93.42.10.20:9000) "
+                               "or a WebSocket address "
                                "(wss://gbcatrade.wired-ariel.it/ws)")
             host, _, porta = relay.partition(":")
             if not (0 < int(porta) < 65536):
-                return False, "porta del relay fuori range"
+                return False, "relay port out of range"
         c["relay"] = relay
 
         try:
             stanza = int(nuova.get("stanza", c["stanza"]))
         except (TypeError, ValueError):
-            return False, "la stanza deve essere un numero"
+            return False, "the room must be a number"
         if not (1 <= stanza <= 65535):
-            return False, "la stanza deve stare fra 1 e 65535"
+            return False, "the room must be between 1 and 65535"
         c["stanza"] = stanza
 
         try:
             timing = int(nuova.get("timing", c["timing"]))
         except (TypeError, ValueError):
-            return False, "timing non valido"
+            return False, "invalid timing"
         if not (1000 <= timing <= 60000):
-            return False, "timing fuori range (1000-60000)"
+            return False, "timing out of range (1000-60000)"
         c["timing"] = timing
 
         try:
             peer = int(nuova.get("peer", c.get("peer", 0)))
         except (TypeError, ValueError):
-            return False, "il peer deve essere un numero"
+            return False, "the peer must be a number"
         if not (0 <= peer <= 65534):
-            return False, "il peer va da 1 a 65534 (0 = automatico)"
+            return False, "the peer goes from 1 to 65534 (0 = automatic)"
         c["peer"] = peer
 
         cavo = nuova.get("cavo", c["cavo"])
         if cavo not in ("auto", "gba", "gbc"):
-            return False, "tipo di cavo sconosciuto"
+            return False, "unknown cable type"
         c["cavo"] = cavo
 
         if ruolo == "ospite":
@@ -320,7 +320,7 @@ class Pannello:
 
         self.config = c
         self.salva_config()
-        return True, "salvata"
+        return True, "saved"
 
     # --- log ---------------------------------------------------------------
 
@@ -345,9 +345,9 @@ class Pannello:
     # I formati letti qui sono un CONTRATTO con client.py e mb_multi.py: se
     # cambiano quelle stringhe, la sintesi in cima al pannello smette di
     # aggiornarsi senza nessun errore. Sono tenuti pochi e grossolani apposta.
-    RE_MAPPA = re.compile(r"io su mappa (\d+)\.(\d+)")
-    RE_CONTI = re.compile(r"inviati (\d+) \| ricevuti (\d+)")
-    RE_PAROLE = re.compile(r"rx \d+ frame, ([\d~?]+) parole/s")
+    RE_MAPPA = re.compile(r"(?:io su mappa|me on map) (\d+)\.(\d+)")
+    RE_CONTI = re.compile(r"(?:inviati|sent) (\d+) \| (?:ricevuti|received) (\d+)")
+    RE_PAROLE = re.compile(r"rx \d+ frames?, ([\d~?]+) (?:parole|words)/s")
 
     def _annusa(self, chi, testo):
         s = self.sintesi
@@ -366,9 +366,9 @@ class Pannello:
                 s["parole_s"] = m.group(1)
 
             if "[club ]" in testo:
-                if "si ricammina" in testo or "sessione chiusa" in testo:
+                if "si ricammina" in testo or "sessione chiusa" in testo or "session closed" in testo or "peer left the club" in testo or "left the club" in testo:
                     s["club"] = None
-                elif "entrato al Cable Club" in testo:
+                elif "entrato al Cable Club" in testo or "entered the Cable Club" in testo:
                     s["club"] = "in corso"
                 elif "ruolo:" in testo and "MASTER" in testo:
                     s["club"] = "master"
@@ -376,29 +376,29 @@ class Pannello:
                     s["club"] = "slave"
 
             # I guai che il pannello deve gridare, non nascondere.
-            if "CANALE CON IL GBA FERMO" in testo:
-                s["avviso"] = ("Il canale col GBA si e' fermato. Premi "
-                               "SBLOCCA ADATTATORE: il GBA NON va spento.")
-            elif "ha chiuso la porta seriale" in testo:
-                s["avviso"] = ("Sei fuori dal mondo di gioco (menu, casa, "
-                               "lotta): l'amico ti vede fermo. Torna "
-                               "all'aperto.")
-            elif "NESSUN EMULATORE COLLEGATO" in testo:
-                s["avviso"] = "Nessun emulatore collegato: carica lo script in mGBA."
-            elif "non ha ancora detto su che mappa" in testo:
-                s["avviso"] = ("Il GBA non dice dove sei: sei in partita, "
-                               "all'aperto? Sul titolo il programma tace.")
-            elif s["avviso"] and ("inviati" in testo and s["mappa"]):
+            if "CANALE CON IL GBA FERMO" in testo or "GBA CHANNEL STUCK" in testo:
+                s["avviso"] = ("The channel to the GBA has stalled. Press "
+                               "UNJAM ADAPTER: do NOT turn the GBA off.")
+            elif "ha chiuso la porta seriale" in testo or "closed the serial port" in testo:
+                s["avviso"] = ("You are outside the game world (menu, house, "
+                               "battle): your friend sees you standing still. "
+                               "Go back outdoors.")
+            elif "NESSUN EMULATORE COLLEGATO" in testo or "NO EMULATOR CONNECTED" in testo:
+                s["avviso"] = "No emulator connected: load the script in mGBA."
+            elif "non ha ancora detto su che mappa" in testo or "has not said which map" in testo:
+                s["avviso"] = ("The GBA is not saying where you are: are you in the "
+                               "game, outdoors? On the title screen the program stays quiet.")
+            elif s["avviso"] and (("inviati" in testo or " | sent " in testo) and s["mappa"]):
                 s["avviso"] = None
 
         elif chi == "multiboot":
             if "DONE!" in testo:
                 s["caricato"] = True
                 s["avviso"] = None
-            if "nessuna risposta" in testo:
-                s["avviso"] = ("Il GBA non risponde: slot cartuccia VUOTO e "
-                               "console accesa DOPO il cavo? Riprova, una "
-                               "volta su tre e' normale.")
+            if "nessuna risposta" in testo or "no response" in testo:
+                s["avviso"] = ("The GBA is not answering: cartridge slot EMPTY and "
+                               "console turned on AFTER the cable? Try again, "
+                               "one failure in three is normal.")
 
     # --- avvio dei pezzi ---------------------------------------------------
 
@@ -414,8 +414,8 @@ class Pannello:
 
         if cosa == "relay":
             if c["ruolo"] != "ospite":
-                return False, ("il relay lo accende chi OSPITA: tu ti colleghi "
-                               "a quello dell'amico")
+                return False, ("the relay is started by the HOST: you connect "
+                               "to your friend's")
             porta = int(c["relay"].partition(":")[2])
             return self.proc["relay"].avvia(
                 [py, "-u", os.path.join(QUI, "relay.py"),
@@ -424,8 +424,8 @@ class Pannello:
         if cosa in ("multiboot", "gioca", "sblocca"):
             occupato = self.usb_occupato()
             if occupato and occupato != cosa:
-                return False, ("l'adattatore e' gia' impegnato da '%s': "
-                               "fermalo prima" % occupato)
+                return False, ("the adapter is already in use by '%s': "
+                               "stop it first" % occupato)
 
         if cosa == "multiboot":
             stub = os.path.join(QUI, "mbstub.gba")
@@ -433,8 +433,8 @@ class Pannello:
                 stub = os.path.join(QUI, "..", "hw", "mbstub", "build",
                                     "mbstub.gba")
             if not os.path.exists(stub):
-                return False, ("mbstub.gba non trovato: e' il programma da "
-                               "caricare nel GBA")
+                return False, ("mbstub.gba not found: it is the program that "
+                               "gets loaded into the GBA")
             self.sintesi["caricato"] = False
             return self.proc["multiboot"].avvia(
                 [py, "-u", os.path.join(QUI, "mb_multi.py"),
@@ -472,15 +472,15 @@ class Pannello:
                  "--room", str(c["stanza"]),
                  "--peer-id", str(peer)])
 
-        return False, "non so cosa sia '%s'" % cosa
+        return False, "I do not know what '%s' is" % cosa
 
     def ferma(self, cosa):
         p = self.proc.get(cosa)
         if p is None:
-            return False, "non so cosa sia '%s'" % cosa
+            return False, "I do not know what '%s' is" % cosa
         if not p.ferma():
-            return False, "non era in corso"
-        return True, "fermato"
+            return False, "it was not running"
+        return True, "stopped"
 
     def ferma_tutto(self):
         for p in self.proc.values():
@@ -568,7 +568,7 @@ class Handler(BaseHTTPRequestHandler):
                 with open(HTML_PATH, "rb") as f:
                     corpo = f.read()
             except FileNotFoundError:
-                self.send_error(500, "pannello.html non trovato")
+                self.send_error(500, "pannello.html not found")
                 return
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -613,7 +613,7 @@ class Handler(BaseHTTPRequestHandler):
         if percorso == "/mappa.html":
             strada = os.path.join(QUI, "mappa.html")
             if not os.path.exists(strada):
-                self.send_error(404, "mappa.html non trovato")
+                self.send_error(404, "mappa.html not found")
                 return
             with open(strada, "rb") as f:
                 corpo = f.read()
@@ -634,7 +634,7 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             strada = os.path.join(QUI, "mappa", *m.group(1).split("/"))
             if not os.path.exists(strada):
-                self.send_error(404, "dati della mappa non generati: tools\\gen_mappa.py")
+                self.send_error(404, "map data not generated: tools\\gen_mappa.py")
                 return
             with open(strada, "rb") as f:
                 corpo = f.read()
@@ -715,7 +715,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Pannello web locale per l'overworld link")
+        description="Local web panel for the overworld link")
     ap.add_argument("--porta", type=int, default=7411)
     ap.add_argument("--niente-browser", action="store_true")
     args = ap.parse_args()
@@ -729,14 +729,14 @@ def main():
         httpd = ThreadingHTTPServer(("127.0.0.1", args.porta), Handler)
     except OSError as exc:
         raise SystemExit(
-            "[pannello] non riesco ad aprire la porta %d (%s).\n"
-            "[pannello] Forse il pannello e' gia' aperto in un'altra finestra: "
-            "guarda nel browser." % (args.porta, exc))
+            "[panel] cannot open port %d (%s).\n"
+            "[panel] The panel may already be open in another window: "
+            "check your browser." % (args.porta, exc))
 
     url = "http://127.0.0.1:%d/" % args.porta
     print("=" * 62)
-    print("  PANNELLO APERTO:  %s" % url)
-    print("  Lascia questa finestra aperta. Per chiudere tutto: Ctrl+C.")
+    print("  PANEL OPEN:  %s" % url)
+    print("  Leave this window open. To close everything: Ctrl+C.")
     print("=" * 62, flush=True)
 
     if not args.niente_browser:
@@ -745,7 +745,7 @@ def main():
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n[pannello] chiusura: fermo tutto quello che ho avviato...")
+        print("\n[panel] shutting down: stopping everything I started...")
     finally:
         pannello.ferma_tutto()
 

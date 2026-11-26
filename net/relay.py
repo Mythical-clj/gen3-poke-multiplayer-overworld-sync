@@ -149,7 +149,7 @@ class Relay:
             self.sock.bind(("", port))
         except OSError as exc:
             raise SystemExit(
-                "[relay] porta UDP %d gia' occupata (%s): c'e' gia' un relay acceso?"
+                "[relay] UDP port %d already in use (%s): is a relay already running?"
                 % (port, exc))
         self.sock.settimeout(0.5)
         self.log("in ascolto su UDP %d, timeout peer %ds" % (port, timeout))
@@ -207,10 +207,10 @@ class Relay:
             return
         self._ping_pong_detto.add(peer.peer_id)
         a, b = sorted(indirizzi)
-        self.log("!!! peer %d RIMBALZA fra %s:%d e %s:%d (%d rientri in 10 s): "
-                 "DUE CLIENT CON LO STESSO PEER-ID? Si buttano fuori a "
-                 "vicenda a ogni battito e non si vedranno MAI. Dai a ognuno "
-                 "un --peer-id diverso."
+        self.log("!!! peer %d BOUNCES between %s:%d and %s:%d (%d re-entries in 10 s): "
+                 "TWO CLIENTS WITH THE SAME PEER-ID? They kick each other out "
+                 "at every heartbeat and will NEVER see each other. Give each "
+                 "a different --peer-id."
                  % (peer.peer_id, a[0], a[1], b[0], b[1], len(recenti)))
 
     def move_to_room(self, peer, room_id):
@@ -289,8 +289,8 @@ class Relay:
                 members.discard(other_addr)
                 self.peers.pop(other_addr, None)
                 self.rebinds += 1
-                self.log("peer %d RIENTRA da %s:%d (prima %s:%d): rebinding "
-                         "NAT o riavvio del client - rientro n. %d"
+                self.log("peer %d RE-ENTERS from %s:%d (before %s:%d): NAT "
+                         "rebinding or client restart - re-entry no. %d"
                          % (peer.peer_id, peer.addr[0], peer.addr[1],
                             other_addr[0], other_addr[1], self.rebinds))
                 self._forse_ping_pong(peer, other_addr)
@@ -318,7 +318,7 @@ class Relay:
         if not peer.observer and self.giocatori_in(room_id) >= 4:
             if peer.refused_room != room_id:
                 peer.refused_room = room_id
-                self.log("stanza %d PIENA (4 giocatori): peer %d resta fuori"
+                self.log("room %d FULL (4 players): peer %d stays out"
                          % (room_id, peer.peer_id))
             return
         peer.refused_room = None
@@ -331,13 +331,13 @@ class Relay:
         giocatori = self.giocatori_in(room_id)
         spettatori = len(members) - giocatori
         if peer.observer:
-            self.log("peer %d GUARDA la stanza %d (spettatore; %d giocatori "
-                     "+ %d spettatori)"
+            self.log("peer %d WATCHES room %d (spectator; %d players "
+                     "+ %d spectators)"
                      % (peer.peer_id, room_id, giocatori, spettatori))
         else:
-            self.log("peer %d entra nella stanza %d (%d giocatori%s)"
+            self.log("peer %d joins room %d (%d players%s)"
                      % (peer.peer_id, room_id, giocatori,
-                        (" + %d spettatori" % spettatori) if spettatori else ""))
+                        (" + %d spectators" % spettatori) if spettatori else ""))
 
     def numero_occupato(self, peer, room_id, other):
         """Il nuovo resta FUORI e gli si dice perche' (T_TAKEN), al massimo una
@@ -351,10 +351,10 @@ class Relay:
                                   bytes([1 if other.observer else 0])), peer.addr)
         if peer.taken_room != room_id:
             peer.taken_room = room_id
-            self.log("peer %d da %s:%d RIFIUTATO nella stanza %d: il numero e' "
-                     "gia' usato da %s vivo da %s:%d"
+            self.log("peer %d from %s:%d REFUSED in room %d: the number is "
+                     "already used by %s alive at %s:%d"
                      % (peer.peer_id, peer.addr[0], peer.addr[1], room_id,
-                        "uno spettatore" if other.observer else "un giocatore",
+                        "a spectator" if other.observer else "a player",
                         other.addr[0], other.addr[1]))
 
     def leave_room(self, peer, notify):
@@ -470,8 +470,8 @@ class Relay:
                 self.eventi_da_spettatori += 1
                 if not peer.event_warned:
                     peer.event_warned = True
-                    self.log("peer %d e' SPETTATORE ma manda eventi: non li "
-                             "inoltro (client vecchio o rotto?)" % peer.peer_id)
+                    self.log("peer %d is a SPECTATOR but sends events: not "
+                             "forwarding them (old or broken client?)" % peer.peer_id)
                 return
             self.broadcast(peer, data)
             if self.verbose:
@@ -480,7 +480,7 @@ class Relay:
                 # il 2026-08-02 e' costato mezz'ora di sospetto sulla stanza
                 # sbagliata, mentre era giusta. Formato uguale a quello che
                 # l'utente scrive in --room.
-                self.log("peer %d -> stanza %d, %d byte"
+                self.log("peer %d -> room %d, %d bytes"
                          % (peer_id, room_id, len(body)))
             return
 
@@ -501,8 +501,8 @@ class Relay:
                 self.chat_frenati += 1
                 if not peer.chat_frenato:
                     peer.chat_frenato = True
-                    self.log("peer %d scrive TROPPO in chat (piu' di %d in %d s): "
-                             "freno i suoi messaggi finche' non rallenta"
+                    self.log("peer %d writes TOO much chat (more than %d in %d s): "
+                             "holding back their messages until they slow down"
                              % (peer.peer_id, CHAT_MAX, CHAT_FINESTRA_S))
                 return
             peer.chat_frenato = False
@@ -510,7 +510,7 @@ class Relay:
             self.chat_inoltrati += 1
             self.broadcast(peer, data)
             if self.verbose:
-                self.log("peer %d -> chat della stanza %d, %d byte"
+                self.log("peer %d -> room %d chat, %d bytes"
                          % (peer_id, room_id, len(body)))
             return
 
@@ -531,8 +531,8 @@ class Relay:
                 else:
                     self.pubbliche.pop(room_id, None)
                 if aperta != prima:
-                    self.log("stanza %d %s (da peer %d)"
-                             % (room_id, "APERTA a tutti" if aperta else "di nuovo privata", peer_id))
+                    self.log("room %d %s (by peer %d)"
+                             % (room_id, "OPEN to everyone" if aperta else "private again", peer_id))
             return
 
         self.log("tipo sconosciuto %s da peer %d"
@@ -547,7 +547,7 @@ class Relay:
         for room_id, scade in list(self.pubbliche.items()):
             if scade < ora or room_id not in self.rooms:
                 self.pubbliche.pop(room_id, None)
-                self.log("stanza %d non piu' aperta (segno scaduto)" % room_id)
+                self.log("room %d no longer open (sign expired)" % room_id)
                 continue
             giocatori = self.giocatori_in(room_id)
             if giocatori == 0:
@@ -592,8 +592,8 @@ class Relay:
                     and self.giocatori_in(peer.room) == 1):
                 if now - peer.alone_since > 5.0:
                     peer.alone_since = now
-                    self.log("peer %d e' SOLO nella stanza %d: l'altro non e' "
-                             "collegato, o e' su un'altra mappa"
+                    self.log("peer %d is ALONE in room %d: the other is not "
+                             "connected, or is on another map"
                              % (peer.peer_id, peer.room))
             else:
                 peer.alone_since = now
@@ -616,14 +616,14 @@ class Relay:
                 # altri. Trovato dalla prova end-to-end, non in produzione.
                 continue
             except OSError as exc:
-                self.log("errore di ricezione: %r" % exc)
+                self.log("receive error: %r" % exc)
                 self.sweep()
                 continue
 
             try:
                 self.handle(data, addr)
             except Exception as exc:   # un peer malformato non deve fermare tutto
-                self.log("errore gestendo %s: %r" % (addr, exc))
+                self.log("error handling %s: %r" % (addr, exc))
 
             self.sweep()
 

@@ -70,14 +70,14 @@ class TestDenuncia(unittest.TestCase):
         b = bridge_finto()
         b.controlla_versione(0, 0)
         testo = "\n".join(b.righe)
-        self.assertIn("FILE VECCHI", testo)
-        self.assertIn("ENTRAMBI i PC", testo)
+        self.assertIn("OLD FILES", testo)
+        self.assertIn("BOTH PCs", testo)
 
     def test_versione_diversa_lo_dice(self):
         b = bridge_finto()
         b.controlla_versione(VERSIONE_CLUB - 1, IMPRONTA_SORGENTI)
         testo = "\n".join(b.righe)
-        self.assertIn("VERSIONI DIVERSE", testo)
+        self.assertIn("DIFFERENT VERSIONS", testo)
 
     def test_stessa_versione_ma_file_diversi_lo_dice(self):
         """Il caso vero del 2026-08-20: stesso numero di versione, pacchetto
@@ -85,7 +85,7 @@ class TestDenuncia(unittest.TestCase):
         b = bridge_finto()
         b.controlla_versione(VERSIONE_CLUB, IMPRONTA_SORGENTI ^ 0xFFFF)
         testo = "\n".join(b.righe)
-        self.assertIn("FILE DIVERSI", testo)
+        self.assertIn("DIFFERENT FILES", testo)
 
     def test_lo_dice_una_volta_sola(self):
         """Gli stati arrivano a raffica: la denuncia deve restare leggibile,
@@ -93,7 +93,7 @@ class TestDenuncia(unittest.TestCase):
         b = bridge_finto()
         for _ in range(20):
             b.controlla_versione(0, 0)
-        self.assertEqual(sum(1 for r in b.righe if "FILE VECCHI" in r), 1)
+        self.assertEqual(sum(1 for r in b.righe if "OLD FILES" in r), 1)
 
 
 if __name__ == "__main__":

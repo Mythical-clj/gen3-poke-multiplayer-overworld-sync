@@ -141,7 +141,7 @@ class RelayWs:
         try:
             self.listener.bind((bind, port))
         except OSError as exc:
-            raise SystemExit("[ws   ] porta TCP %d gia' occupata (%s): c'e' gia' un relay_ws acceso?"
+            raise SystemExit("[ws   ] TCP port %d already in use (%s): is a relay_ws already running?"
                              % (port, exc))
         self.listener.listen(16)
         self.listener.setblocking(False)
@@ -191,7 +191,7 @@ class RelayWs:
                             self._udp_read(conn)
                 except Exception as exc:     # una connessione rotta non ferma le altre
                     if self.verbose:
-                        self.log("errore su %s: %r" % (conn.descr() if conn else "?", exc))
+                        self.log("error on %s: %r" % (conn.descr() if conn else "?", exc))
                     if conn is not None:
                         self._drop(conn, "errore: %r" % exc)
             now = time.monotonic()
@@ -311,7 +311,7 @@ class RelayWs:
         if self.origins:
             origin = headers.get("origin", "")
             if origin not in self.origins:
-                self.log("rifiutata %s: origine %r non ammessa" % (conn.descr(), origin))
+                self.log("refused %s: origin %r not allowed" % (conn.descr(), origin))
                 self._reply_http(conn, "403 Forbidden", "text/plain", b"origine non ammessa\n")
                 return
         resp = ("HTTP/1.1 101 Switching Protocols\r\n"
@@ -409,11 +409,11 @@ class RelayWs:
             # relay.
             conn.junk += 1
             if conn.junk == 1:
-                self.log("%s manda roba che non e' OWL1 (%d byte): ignorata" % (conn.descr(), len(payload)))
+                self.log("%s sends data that is not OWL1 (%d bytes): ignored" % (conn.descr(), len(payload)))
             return
         kind, peer_id, room_id, seq, body = parsed
         if conn.peer_id is None:
-            self.log("%s e' il peer %d (stanza %d)" % (conn.descr(), peer_id, room_id))
+            self.log("%s is peer %d (room %d)" % (conn.descr(), peer_id, room_id))
         conn.peer_id = peer_id
         if room_id:
             conn.room = room_id
@@ -457,10 +457,10 @@ class RelayWs:
                 return
             except ConnectionResetError:
                 # Windows: ICMP "porta non raggiungibile" = il relay non c'e'.
-                self.log("%s: il relay %s:%d non risponde (e' acceso?)" % ((conn.descr(),) + self.relay_addr))
+                self.log("%s: the relay %s:%d is not answering (is it running?)" % ((conn.descr(),) + self.relay_addr))
                 return
             except OSError as exc:
-                self.log("%s: lettura dal relay fallita: %s" % (conn.descr(), exc))
+                self.log("%s: reading from the relay failed: %s" % (conn.descr(), exc))
                 return
             if not conn.handshaken or conn.closing:
                 continue
@@ -492,7 +492,7 @@ class RelayWs:
         self.conns.pop(conn.sock, None)
         self.by_udp.pop(conn.udp, None)
         if not quiet:
-            self.log("%s chiuso (%s)%s, rx %d tx %d, %d connessioni"
+            self.log("%s closed (%s)%s, rx %d tx %d, %d connections"
                      % (conn.descr(), reason,
                         (" peer %d" % conn.peer_id) if conn.peer_id is not None else "",
                         conn.rx, conn.tx, len(self.conns)))

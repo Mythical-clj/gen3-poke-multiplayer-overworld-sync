@@ -70,7 +70,7 @@ class BridgeFinto(C.Bridge):
         self.consegnati.append(event)
 
     def stati(self):
-        return [r for r in self.righe if r.startswith("[stato ]")]
+        return [r for r in self.righe if r.startswith("[state]")]
 
 
 class TestStatoLog(unittest.TestCase):
@@ -80,8 +80,8 @@ class TestStatoLog(unittest.TestCase):
         b.forward_event(evento(EV_STATUS, 3, 11), 0.0)   # copia: muta
         b.forward_event(evento(EV_STATUS, 3, 12), 0.0)   # battito: muta
         b.forward_event(evento(EV_STATUS, 4, 13), 0.0)   # zaino: riga
-        self.assertEqual(b.stati(), ["[stato ] io -> menu  (dal GBA, #10)",
-                                     "[stato ] io -> zaino  (dal GBA, #13)"])
+        self.assertEqual(b.stati(), ["[state] me -> menu  (from the GBA, #10)",
+                                     "[state] me -> zaino  (from the GBA, #13)"])
         self.assertEqual(b.stato_cambi, 2)
         # Gli eventi passano TUTTI: la riga e' solo un'annotazione.
         self.assertEqual(b.sent, 4)
@@ -92,8 +92,8 @@ class TestStatoLog(unittest.TestCase):
         b.heal_and_deliver(2, evento(EV_STATUS, 4))
         b.heal_and_deliver(2, evento(EV_STATUS, 0))
         self.assertEqual(b.stati(), [
-            "[stato ] amico 2 -> zaino  (dalla rete, verso il GBA)",
-            "[stato ] amico 2 -> overworld  (dalla rete, verso il GBA)"])
+            "[state] friend 2 -> zaino  (from the network, to the GBA)",
+            "[state] friend 2 -> overworld  (from the network, to the GBA)"])
         self.assertEqual(len(b.consegnati), 3)
 
     def test_amici_distinti_non_si_confondono(self):
@@ -105,7 +105,7 @@ class TestStatoLog(unittest.TestCase):
     def test_stato_ignoto_non_rompe(self):
         b = BridgeFinto()
         b.forward_event(evento(EV_STATUS, 9, 1), 0.0)
-        self.assertEqual(b.stati(), ["[stato ] io -> ?9  (dal GBA, #1)"])
+        self.assertEqual(b.stati(), ["[state] me -> ?9  (from the GBA, #1)"])
 
     def test_posizioni_per_la_mappa_live(self):
         b = BridgeFinto()
