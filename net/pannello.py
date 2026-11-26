@@ -116,7 +116,13 @@ class Processo:
                 stdin=subprocess.DEVNULL,
                 bufsize=1,
                 universal_newlines=True,
+                encoding="utf-8",
                 errors="replace",
+                env=dict(os.environ, PYTHONIOENCODING="utf-8",
+                         PYTHONUNBUFFERED="1"),
+                # no black console window per child when started from the GUI
+                creationflags=(subprocess.CREATE_NO_WINDOW
+                               if sys.platform == "win32" else 0),
             )
         except Exception as exc:
             self.pannello.riga(self.nome, "START FAILED: %s" % exc)
@@ -428,7 +434,9 @@ class Pannello:
                                "stop it first" % occupato)
 
         if cosa == "multiboot":
-            stub = os.path.join(QUI, "mbstub.gba")
+            stub = os.environ.get("MBSTUB_PATH") or ""
+            if not os.path.exists(stub):
+                stub = os.path.join(QUI, "mbstub.gba")
             if not os.path.exists(stub):
                 stub = os.path.join(QUI, "..", "hw", "mbstub", "build",
                                     "mbstub.gba")

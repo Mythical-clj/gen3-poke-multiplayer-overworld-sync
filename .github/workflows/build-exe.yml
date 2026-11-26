@@ -1,4 +1,4 @@
-name: Build Windows launcher
+name: Build Windows exe
 on:
   workflow_dispatch:
   push:
@@ -13,39 +13,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pyinstaller
-      - name: Build launcher
+      - run: pip install pyinstaller pyusb libusb-package
+      - name: Build
         shell: bash
         run: |
           cd net
-          pyinstaller --onefile --console --name gblink launcher.py
-      - name: Package
+          ADD=""
+          for f in client.py relay.py relay_ws.py mb_multi.py usb_link.py finto_club.py; do
+            ADD="$ADD --add-data $f;."
+          done
+          pyinstaller --onefile --console --name gblink \
+            $ADD \
+            --collect-binaries libusb_package --collect-submodules usb \
+            --hidden-import tkinter --hidden-import tkinter.ttk \
+            --hidden-import tkinter.filedialog --hidden-import tkinter.messagebox \
+            --paths . gui.py
+      - name: Check it starts
         shell: bash
         run: |
-          mkdir -p pkg/gblink/net pkg/gblink/web
-          cp net/dist/gblink.exe pkg/gblink/
-          cp -r net/. pkg/gblink/net/
-          rm -rf pkg/gblink/net/build pkg/gblink/net/dist pkg/gblink/net/__pycache__ pkg/gblink/net/gblink.spec pkg/gblink/net/test_*.py
-          cp -r web/fonts pkg/gblink/web/
-          cat > pkg/gblink/README.txt <<'EOT'
-          gblink client (needs Python 3.8+ installed: python.org, tick "Add python.exe to PATH")
-
-          1. Unzip this whole folder anywhere.
-          2. Double-click gblink.exe. The panel opens in your browser at http://127.0.0.1:7411/
-             (the first run installs the USB libraries; it needs internet once).
-          3. To load the game into the GBA, put mbstub.gba inside the net folder.
-          Leave the black window open while you play. Ctrl+C closes everything.
-          EOT
-          sed -i 's/^          //' pkg/gblink/README.txt
-          cd pkg && 7z a ../gblink-client-windows.zip gblink
+          cd net
+          ./dist/gblink.exe -u relay.py --help | head -3
       - uses: actions/upload-artifact@v4
         with:
           name: gblink-windows
-          path: gblink-client-windows.zip
+          path: net/dist/gblink.exe
       - name: Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=client-$(date -u +%Y%m%d-%H%M)
-          gh release create "$TAG" gblink-client-windows.zip --title "Client $TAG" --notes "Needs Python 3.8+. Unzip the whole folder, double-click gblink.exe, the panel opens in your browser."
+          gh release create "$TAG" net/dist/gblink.exe --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. Put mbstub.gba next to it (or pick it with the button)."
