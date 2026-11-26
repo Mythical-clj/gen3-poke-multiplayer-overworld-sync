@@ -387,7 +387,7 @@ class Relay:
                 self.sock.sendto(datagram, addr)
                 sender.tx += 1
             except OSError as exc:
-                self.log("invio a %s fallito: %s" % (addr, exc))
+                self.log("send to %s failed: %s" % (addr, exc))
 
     # --- ciclo principale -------------------------------------------------
 

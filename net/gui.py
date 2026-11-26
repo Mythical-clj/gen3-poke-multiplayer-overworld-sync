@@ -6,6 +6,7 @@ usb_link.py as child processes). When the exe is started as
 window: that is how the window starts its children.
 """
 import os
+import re
 import runpy
 import sys
 
@@ -88,6 +89,14 @@ def find_map_dir():
                            os.path.join(DATA, "mappa"), os.path.join(BASE, "mappa")], "dati.json")
 
 
+# The window log shows only these by default; "Show details" shows everything
+# (Copy/Save always export the full log).
+IMPORTANT = re.compile(
+    r"connect|session|club|battle|trade|role|master|slave|friend|peer|room|"
+    r"started|stopped|ready|done|loaded|warning|stuck|silent|lost|closed|"
+    r"timeout|retry|sent \d|map |build ", re.I)
+
+
 class App:
     def __init__(self, root):
         self.root = root
@@ -165,6 +174,8 @@ class App:
         bar = ttk.Frame(box)
         bar.pack(fill="x")
         ttk.Label(bar, text="Log").pack(side="left")
+        self.detail = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="Show details", variable=self.detail).pack(side="left", padx=(10, 0))
         ttk.Button(bar, text="Copy", command=self.copy_log).pack(side="right", padx=(6, 0))
         ttk.Button(bar, text="Save...", command=self.save_log).pack(side="right", padx=(6, 0))
         inner = ttk.Frame(box)
@@ -345,6 +356,8 @@ class App:
             if text.startswith(prefix):
                 text = text[len(prefix):].lstrip()
             bad = any(w in text for w in ("!!!", "FAILED", "ERROR", "cannot", "NO EMULATOR"))
+            if not (bad or self.detail.get() or IMPORTANT.search(text)):
+                continue
             self.log.insert("end", "[%s] %s\n" % (r["chi"], text), "bad" if bad else "")
         n = int(self.log.index("end-1c").split(".")[0])
         if n > 1500:

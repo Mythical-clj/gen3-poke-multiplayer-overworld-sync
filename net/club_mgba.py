@@ -115,7 +115,7 @@ class WsClient:
         while b"\r\n\r\n" not in risposta:
             pezzo = self.sock.recv(4096)
             if not pezzo:
-                raise ConnectionError("il server ws ha chiuso nell'handshake")
+                raise ConnectionError("ws server closed during the handshake")
             risposta += pezzo
         testa, _, self._buf = risposta.partition(b"\r\n\r\n")
         if b" 101 " not in testa.split(b"\r\n", 1)[0]:
@@ -158,7 +158,7 @@ class WsClient:
         while len(self._buf) < n:
             pezzo = self.sock.recv(4096)
             if not pezzo:
-                raise ConnectionError("il server ws ha chiuso")
+                raise ConnectionError("ws server closed")
             self._buf += pezzo
         via, self._buf = self._buf[:n], self._buf[n:]
         return via
@@ -233,7 +233,7 @@ def bridge(link, ws, log=print):
         connect_mandato = True
         link.club_command(CMD_CONNECT_LINK, "ConnectLink (%s)" % perche)
 
-    log("[ponte] in ascolto: parla con la signorina sul GBA e nell'emulatore")
+    log("[bridge] listening: talk to the attendant on the GBA and in the emulator")
     while True:
         mosso = False
 
@@ -255,7 +255,7 @@ def bridge(link, ws, log=print):
                 elif start_scadenza is None and not start_mandato:
                     start_scadenza = time.time() + RIPIEGO_S
             elif st == LINK_ST_CLOSED:
-                log("[ponte] il device ha chiuso: fine della sessione")
+                log("[bridge] device closed: session over")
                 return blocchi_al_lua, blocchi_al_gba
 
         # 2. blocchi dal device fisico -> Lua (binario, grezzi)
@@ -283,11 +283,11 @@ def bridge(link, ws, log=print):
             except ValueError:
                 cmd = -1
             if cmd in (CT_SET_MODE_MASTER, CT_SET_MODE_SLAVE):
-                log("[ponte] il Lua assegna il ruolo: %s"
+                log("[bridge] Lua assigns the role: %s"
                     % ("master" if cmd == CT_SET_MODE_MASTER else "slave"))
                 link.club_command(
                     CMD_SET_MODE_MASTER if cmd == CT_SET_MODE_MASTER
-                    else CMD_SET_MODE_SLAVE, "ruolo dal Lua")
+                    else CMD_SET_MODE_SLAVE, "role from Lua")
             elif cmd == CT_START_HANDSHAKE:
                 lua_start = True
                 manda_start("richiesto dal Lua")
@@ -295,7 +295,7 @@ def bridge(link, ws, log=print):
                 lua_connect = True
                 manda_connect("richiesto dal Lua")
             elif cmd == CT_CANCEL:
-                log("[ponte] il Lua chiede Cancel: fine della sessione")
+                log("[bridge] Lua requests Cancel: session over")
                 link.club_command(CMD_CANCEL, "Cancel dal Lua")
                 return blocchi_al_lua, blocchi_al_gba
         elif genere == 0x2:                        # binario: blocchi da 64
@@ -311,7 +311,7 @@ def bridge(link, ws, log=print):
         if (start_scadenza is not None and adesso >= start_scadenza
                 and not start_mandato):
             start_scadenza = None
-            manda_start("ripiego: il device e' pronto e il Lua tace")
+            manda_start("fallback: device ready and Lua silent")
         if (connect_scadenza is not None and adesso >= connect_scadenza
                 and not connect_mandato):
             connect_scadenza = None
@@ -344,7 +344,7 @@ Prima di lanciare, in quest'ordine:
   4. Questo script. Poi parla con la signorina su TUTTI E DUE.
 """)
 
-    print("[ponte] apro il device (passthrough di servizio)...")
+    print("[bridge] opening the device (service passthrough)...")
     # Costruire NON apre: il device si aggancia con open(), come fa client.py.
     # Dimenticarla produce un 'NoneType has no attribute write' travestito
     # da endpoint inceppato (successo il 2026-08-17).
@@ -366,12 +366,12 @@ Prima di lanciare, in quest'ordine:
             "        mGBA e' aperto? Lo script club-emulatore.lua e' "
             "caricato? La console Lua dice 'Starting websocket server'?"
             % e)
-    print("[ponte] collegato. La sessione e' viva.")
+    print("[bridge] connected. Session is live.")
 
     try:
         al_lua, al_gba = bridge(link, ws)
     except KeyboardInterrupt:
-        print("\n[ponte] interrotto: chiudo con ordine")
+        print("\n[bridge] interrupted: closing cleanly")
         try:
             ws.send_text(str(LINK_ST_CLOSED))
         except Exception:

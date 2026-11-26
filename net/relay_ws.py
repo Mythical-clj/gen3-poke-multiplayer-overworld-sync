@@ -266,7 +266,7 @@ class RelayWs:
             self._drop(conn, "lettura fallita: %s" % exc)
             return
         if not data:
-            self._drop(conn, "chiuso dal browser")
+            self._drop(conn, "closed by browser")
             return
         conn.buf += data
         conn.last_seen = time.monotonic()
@@ -321,7 +321,7 @@ class RelayWs:
         conn.out += resp.encode("ascii")
         self._tcp_flush(conn)
         conn.handshaken = True
-        self.log("connesso %s (path %s, %d connessioni)"
+        self.log("connected %s (path %s, %d connections)"
                  % (conn.descr(), path, len(self.conns)))
 
     def _reply_http(self, conn, status, ctype, body):
@@ -421,7 +421,7 @@ class RelayWs:
         try:
             conn.udp.send(payload)
         except OSError as exc:
-            self.log("%s: invio al relay fallito: %s" % (conn.descr(), exc))
+            self.log("%s: send to relay failed: %s" % (conn.descr(), exc))
         if self.verbose:
             self.log("%s -> relay %s (%d byte)" % (conn.descr(), TYPE_NAMES.get(kind, kind), len(body)))
 

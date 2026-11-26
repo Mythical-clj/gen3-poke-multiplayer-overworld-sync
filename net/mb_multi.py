@@ -231,8 +231,8 @@ class Multiboot:
         if d is None or not self.verbose:
             return
         crc_dati, hh, cc = d
-        print(f"[mb  ] diagnosi: crc dei dati in chiaro 0x{crc_dati:04X}, "
-              f"cc letto 0x{cc:02X}, hh 0x{hh:02X}, rr letto 0x{self.rr:02X}")
+        print(f"[mb  ] diagnosis: plain-data crc 0x{crc_dati:04X}, "
+              f"cc read 0x{cc:02X}, hh 0x{hh:02X}, rr read 0x{self.rr:02X}")
         buoni = [rr for rr in range(256)
                  if (crc_step(crc_dati, hh | (rr << 8) | 0xFF000000 | 0xFF0000)
                      & 0xFFFF) == gba]
@@ -687,23 +687,23 @@ class Multiboot:
                 if self.verbose:
                     self.dump_trace()
         raise MultibootError(
-            f"multiboot fallito dopo {self.max_attempts} tentativi. "
-            f"Ultimo errore: {ultimo}")
+            f"multiboot failed after {self.max_attempts} attempts. "
+            f"Last error: {ultimo}")
 
 
 def stampa_rapporto(st):
     print()
-    print("  byte spediti      : %d" % st["byte"])
-    print("  durata            : %.1f s" % st["durata"])
-    print("  parole inviate    : %d" % st["parole_inviate"])
-    print("  risposte lette    : %d  (%.0f parole/s)"
+    print("  bytes sent        : %d" % st["byte"])
+    print("  duration          : %.1f s" % st["durata"])
+    print("  words sent        : %d" % st["parole_inviate"])
+    print("  replies read      : %d  (%.0f words/s)"
           % (st["risposte_lette"], st["parole_s"]))
     # Puo' essere > 0 senza che niente sia rotto: sono le ripetizioni ancora in
     # volo quando una fase finisce. Si stampa perche' se esplode e' il primo
     # sintomo di un idle iniettato.
-    print("  scartate al riaggancio : %d" % st["scartate"])
+    print("  dropped on resync : %d" % st["scartate"])
     print("  desync            : %d" % st["desync"])
-    print("  riavvii           : %d" % st["riavvii"])
+    print("  restarts          : %d" % st["riavvii"])
     if st["desync"] == 0 and st["riavvii"] == 0:
         print("  -> clean: no stray words, no restart")
 

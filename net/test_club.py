@@ -414,7 +414,7 @@ class TestClub(unittest.TestCase):
         self.a.tick()
         self.assertTrue(self.a.finita)
         self.assertTrue(self.a.abortita)
-        self.assertEqual(self.a.motivo_fine, "link chiuso senza riapertura")
+        self.assertEqual(self.a.motivo_fine, "link closed without reopening")
 
     def test_riapertura_completata_spegne_il_timer(self):
         """La riapertura VERA (sedersi alla macchina degli scambi): la scala
@@ -445,7 +445,7 @@ class TestClub(unittest.TestCase):
         self._patch("RIAPERTURA_S", -1.0)
         self.a.tick()
         self.assertTrue(self.a.finita)
-        self.assertEqual(self.a.motivo_fine, "link chiuso senza riapertura")
+        self.assertEqual(self.a.motivo_fine, "link closed without reopening")
 
     def test_riannuncio_identico_non_e_progresso(self):
         """L'altro buco del 2026-08-27: gli stati riannunciati hanno sseq
@@ -656,7 +656,7 @@ class TestClub(unittest.TestCase):
         self.a.tick()
         self.assertTrue(self.a.finita)
         self.assertTrue(self.a.abortita)
-        self.assertEqual(self.a.motivo_fine, "partner muto")
+        self.assertEqual(self.a.motivo_fine, "partner silent")
 
     def test_dup_non_e_progresso(self):
         """I dup dei rilanci NON toccano il watchdog: erano loro a tenere

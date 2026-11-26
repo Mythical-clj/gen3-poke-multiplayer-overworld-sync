@@ -375,7 +375,7 @@ class Pannello:
                 s["parole_s"] = m.group(1)
 
             if "[club ]" in testo:
-                if "si ricammina" in testo or "sessione chiusa" in testo or "session closed" in testo or "peer left the club" in testo or "left the club" in testo:
+                if "si ricammina" in testo or "session closed" in testo or "peer left the club" in testo or "left the club" in testo:
                     s["club"] = None
                 elif "entrato al Cable Club" in testo or "entered the Cable Club" in testo:
                     s["club"] = "in corso"
@@ -385,7 +385,7 @@ class Pannello:
                     s["club"] = "slave"
 
             # I guai che il pannello deve gridare, non nascondere.
-            if "CANALE CON IL GBA FERMO" in testo or "GBA CHANNEL STUCK" in testo:
+            if "GBA CHANNEL STUCK" in testo or "GBA CHANNEL STUCK" in testo:
                 s["avviso"] = ("The channel to the GBA has stalled. Press "
                                "UNJAM ADAPTER: do NOT turn the GBA off.")
             elif "ha chiuso la porta seriale" in testo or "closed the serial port" in testo:

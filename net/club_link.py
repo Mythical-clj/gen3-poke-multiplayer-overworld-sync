@@ -431,8 +431,8 @@ class ClubSession:
         if self.master is None:
             if not self._ruolo_atteso:
                 self._ruolo_atteso = True
-                self.log("[club ] ruolo in attesa: lo decide il confronto dei "
-                         "peer-id appena l'amico si annuncia")
+                self.log("[club ] role pending: decided by comparing peer ids "
+                         "as soon as the friend announces itself")
             return
         self._ruolo_inviato = True
         self.dev.command(CMD_SET_MODE_MASTER if self.master else CMD_SET_MODE_SLAVE,
@@ -485,7 +485,7 @@ class ClubSession:
         # annullo, fine meccanica) e la sessione va chiusa da noi - il
         # firmware LinkClosed non lo dira' mai (vedi RIAPERTURA_S).
         self._riaperto_quando = time.monotonic()
-        self.log("[club ] %s: la scala del link si rifa' da capo (giro %d)"
+        self.log("[club ] %s: link sequence restarts (round %d)"
                  % (motivo, self.giri))
 
     def _al_device(self, blocco64):
@@ -515,8 +515,8 @@ class ClubSession:
             return
         arretrato, self._in_attesa_dev = self._in_attesa_dev, []
         self.blocchi_tenuti += len(arretrato)
-        self.log("[club ] %d blocchi tenuti da parte durante la riapertura: "
-                 "li consegno adesso alla sezione nuova" % len(arretrato))
+        self.log("[club ] %d blocks held during the link reopen: "
+                 "delivering them now" % len(arretrato))
         for blocco in arretrato:
             self.dev.send_block(blocco)
 
@@ -557,9 +557,8 @@ class ClubSession:
         self._rx_attesa = 0            # il partner fresco riparte da 0
         self._annuncio_quando = 0.0    # riannuncio al primo tick
         self._tocca()
-        self.log("[club ] IL CLIENT DELL'AMICO E' RIPARTITO (epoca 0x%08X -> "
-                 "0x%08X): riaggancio in corsa, riazzero il suo lato e "
-                 "riannuncio il mio" % (vecchia, epoca))
+        self.log("[club ] FRIEND'S CLIENT RESTARTED (epoch 0x%08X -> "
+                 "0x%08X): re-syncing" % (vecchia, epoca))
         return True
 
     def nota_partner(self, epoca):
@@ -580,7 +579,7 @@ class ClubSession:
         # soprattutto non si ANNUNCIANO al partner, o il residuo passerebbe
         # dalla porta di servizio e chiuderebbe la sessione da casa sua.
         if not self._avviata and status != LINK_ST_AWAIT_MODE:
-            self.log("[club ] device: %s (residuo del passthrough, ignorato)"
+            self.log("[club ] device: %s (passthrough leftover, ignored)"
                      % nome)
             return
 
@@ -591,7 +590,7 @@ class ClubSession:
         # cominciare una lotta, mixare i record. Il firmware lo annuncia con
         # LinkReconnecting. Da qui la scala va rifatta da capo.
         if status == LINK_ST_RECONNECTING:
-            self._nuovo_giro("il gioco ha riaperto il link")
+            self._nuovo_giro("game reopened the link")
 
         # Come Celio: Ready e Debug restano locali, il resto si annuncia.
         if status not in (LINK_ST_READY, LINK_ST_DEBUG):
@@ -640,8 +639,8 @@ class ClubSession:
                 # Il congedo e' riuscito: il gioco e' uscito DALLA PORTA, non
                 # per un errore del cavo. E' la riga che distingue le due cose.
                 self.finita = True
-                self.log("[club ] il gioco e' uscito dalla saletta dalla "
-                         "porta: congedo riuscito")
+                self.log("[club ] game left the club room through the door: "
+                         "clean exit")
                 return
             self._forse_finita()
 
@@ -711,7 +710,7 @@ class ClubSession:
             pass
         elif status == LINK_ST_CLOSED:
             if not self._avviata:
-                self.log("[club ] (il partner riporta un residuo: ignorato)")
+                self.log("[club ] (partner reported a leftover: ignored)")
                 return
             self._lui_chiuso = True
             # Se il NOSTRO gioco e' ancora dentro, non si stacca: lo si
@@ -719,7 +718,7 @@ class ClubSession:
             if self._io_chiuso:
                 self._forse_finita()
             else:
-                self._congeda("il gioco dell'amico ha chiuso il link")
+                self._congeda("friend's game closed the link")
 
     def on_net_block(self, epoca, seq, blocco64):
         if self.finita or not self._epoca_ok(epoca):
@@ -738,9 +737,8 @@ class ClubSession:
             # solo: ci si e' agganciati a una sessione del partner gia'
             # vecchia. Si adotta la sua numerazione e si va.
             self.salti_numerazione += 1
-            self.log("[club ] numerazione del partner adottata al volo: "
-                     "salto da seq %d a %d (aggancio a sessione gia' in "
-                     "corso)" % (self._rx_attesa, seq))
+            self.log("[club ] adopted partner numbering: "
+                     "jump from seq %d to %d (joined a running session)" % (self._rx_attesa, seq))
             self._rx_buffer.clear()
             self._rx_attesa = seq
         if seq > self._rx_attesa:
@@ -765,7 +763,7 @@ class ClubSession:
     def on_net_leave(self, epoca):
         if self.finita or not self._epoca_ok(epoca):
             return
-        self._congeda("l'amico e' uscito dalla saletta")
+        self._congeda("friend left the club room")
 
     # -- il battito --------------------------------------------------------
 
@@ -784,7 +782,7 @@ class ClubSession:
         if self.congedo and adesso - self._congedo_da > CONGEDO_MAX_S:
             self.abortita = True
             self.finita = True
-            self.log("[club ] il gioco non ha chiuso il link entro %d s: stacco"
+            self.log("[club ] game did not close the link within %d s: detaching"
                      % CONGEDO_MAX_S)
             return
 
@@ -833,28 +831,27 @@ class ClubSession:
         # chiude da qui e si torna al passthrough. Vedi RIAPERTURA_S.
         if (self._riaperto_quando
                 and adesso - self._riaperto_quando > RIAPERTURA_S):
-            self.log("[club ] IL GIOCO HA CHIUSO IL LINK e in %d s la "
-                     "riapertura non si e' completata: comunicazione finita "
-                     "(fine o annullo di scambio/lotta/frullatore), si torna "
-                     "a camminare" % int(RIAPERTURA_S))
-            self.motivo_fine = "link chiuso senza riapertura"
+            self.log("[club ] GAME CLOSED THE LINK and it did not reopen "
+                     "within %d s: session over (trade/battle/mix ended or "
+                     "cancelled), back to walking" % int(RIAPERTURA_S))
+            self.motivo_fine = "link closed without reopening"
             self.abortita = True
             self.finita = True
             return
 
         # Partner muto: mai visto, o client di la' morto senza LEAVE.
         if adesso - self._partner_quando > PARTNER_MUTO_S:
-            self.log("[club ] L'AMICO NON SI FA SENTIRE da %d s: sessione "
-                     "abbandonata, si torna a camminare"
+            self.log("[club ] FRIEND SILENT for %d s: session "
+                     "abandoned, back to walking"
                      % int(PARTNER_MUTO_S))
-            self.motivo_fine = "partner muto"
+            self.motivo_fine = "partner silent"
             self.abortita = True
             self.finita = True
             return
 
         if adesso - self._progresso > WATCHDOG_S:
-            self.log("[club ] NESSUN PROGRESSO da %d s: sessione abbandonata, "
-                     "si torna a camminare" % int(WATCHDOG_S))
+            self.log("[club ] NO PROGRESS for %d s: session abandoned, "
+                     "back to walking" % int(WATCHDOG_S))
             self.motivo_fine = "watchdog"
             self.abortita = True
             self.finita = True
@@ -871,25 +868,25 @@ class ClubSession:
         if not SEGUACE_ATTIVO:
             # v1.7.1: SOSPESO, come in club.js (rallentava le lotte).
             self.coppie = False
-            self.log("[club ] modo seguace SOSPESO in questa versione (rallentava le "
-                     "lotte): nella saletta si usa il modo di prima")
+            self.log("[club ] follower mode suspended in this version: "
+                     "using the standard mode in the club room")
         elif self._hs_avviato:
             self.coppie = False
-            self.log("[club ] l'amico in emulatore sa seguire le coppie, ma la "
-                     "sessione col GBA e' gia' partita: modo di prima per questa volta")
+            self.log("[club ] friend's emulator can follow pairs, but the "
+                     "GBA session already started: standard mode this time")
         elif not self.coppie_possibili:
             self.coppie = False
-            self.log("[club ] l'amico gioca in emulatore e saprebbe tenere i passi "
-                     "della saletta allineati, ma questo Pico non ha il firmware "
-                     "2.0.6: modo di prima (i passi possono sfasarsi)")
+            self.log("[club ] friend plays in an emulator and could keep steps "
+                     "aligned, but this Pico lacks firmware 2.0.6: "
+                     "standard mode (steps may drift)")
         else:
             self.coppie = True
             comando = getattr(self.dev, "command_bytes", None)
             if comando:
                 comando(bytes([CMD_COPPIE, 1]),
-                        "coppie ACCESE (F-5): il Pico riferisce ogni trasferimento")
-            self.log("[club ] modo SEGUACE: il Pico riferisce ogni trasferimento "
-                     "col GBA e l'emulatore li rivede identici")
+                        "pairs ON (F-5): the Pico reports every transfer")
+            self.log("[club ] FOLLOWER mode: the Pico reports every transfer "
+                     "and the emulator replays them identically")
         if self._ultimo_stato is not None:
             self._annuncia_stato(self._ultimo_stato)
         else:
@@ -931,7 +928,7 @@ class ClubSession:
                 and not self._connect_inviato
                 and time.monotonic() - self._hs_quando >= CONNECT_RITARDO_S):
             self._connect_inviato = True
-            self.dev.command(CMD_CONNECT_LINK, "ConnectLink (partner pronto)")
+            self.dev.command(CMD_CONNECT_LINK, "ConnectLink (partner ready)")
             self._forse_riapertura_ok()
 
     def _forse_riapertura_ok(self):
@@ -970,8 +967,8 @@ class ClubSession:
         self.congedo = True
         self._congedo_da = time.monotonic()
         self.motivo_fine = motivo
-        self.log("[club ] %s: accompagno fuori il gioco dalla porta della "
-                 "saletta (niente strappo al cavo)" % motivo)
+        self.log("[club ] %s: walking the game out of the club room "
+                 "(no cable pull)" % motivo)
         self._al_device(blocco_da_cmd([LINKCMD_HELD_KEYS, LINK_KEY_EXIT_ROOM]))
 
     def _forse_finita(self):
@@ -979,12 +976,12 @@ class ClubSession:
         if self._io_chiuso and self._lui_chiuso:
             self.finita = True
             self.motivo_fine = "chiusa da entrambi"
-            self.log("[club ] sessione chiusa da ENTRAMBI i lati: si torna "
-                     "al passthrough")
+            self.log("[club ] session closed by BOTH sides: back "
+                     "to passthrough")
 
     def riassunto(self):
-        riga = ("blocchi tx %d rx %d | dup %d fuori-ordine %d richiesti %d "
-                "rilanci %d | riannunci %d"
+        riga = ("blocks tx %d rx %d | dup %d out-of-order %d requested %d "
+                "resent %d | re-announced %d"
                 % (self.blocchi_tx, self.blocchi_rx, self.duplicati,
                    self.fuori_ordine, self.richiesti, self.rilanci,
                    self.riannunci))
@@ -992,15 +989,15 @@ class ClubSession:
         # devono GRIDARE (regola del progetto: un contatore muto nel log e'
         # una diagnosi persa).
         if self.giri:
-            riga += " | riaperture del link %d" % self.giri
+            riga += " | link reopens %d" % self.giri
         if self.blocchi_tenuti:
-            riga += " | blocchi salvati dalla riapertura %d" % self.blocchi_tenuti
+            riga += " | blocks saved by reopen %d" % self.blocchi_tenuti
         if self.blocchi_persi_dev:
-            riga += " | BLOCCHI PERSI (attesa piena) %d" % self.blocchi_persi_dev
+            riga += " | BLOCKS LOST (queue full) %d" % self.blocchi_persi_dev
         if self.partner_riavvii:
-            riga += " | RIAVVII DEL PARTNER %d" % self.partner_riavvii
+            riga += " | PARTNER RESTARTS %d" % self.partner_riavvii
         if self.epoca_scarti:
-            riga += " | scarti epoca morta %d" % self.epoca_scarti
+            riga += " | dead-epoch discards %d" % self.epoca_scarti
         if self.salti_numerazione:
             riga += " | SALTI DI NUMERAZIONE %d" % self.salti_numerazione
         return riga

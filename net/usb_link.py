@@ -76,7 +76,7 @@ LINK_ST_NOMI = {
     LINK_ST_AWAIT_MODE: "attesa ruolo",
     LINK_ST_HANDSHAKE_RX: "handshake col GBA",
     LINK_ST_HANDSHAKE_OK: "handshake finito",
-    LINK_ST_CONNECTED: "cavo collegato",
+    LINK_ST_CONNECTED: "cable connected",
     LINK_ST_RECONNECTING: "riconnessione",
     LINK_ST_CLOSED: "link chiuso",
     LINK_ST_READY: "pronto",
@@ -790,22 +790,22 @@ class UsbLink:
         tutti e due 'rx 0 frame' e si confondono."""
         d = self.deframer
         if not d.hist:
-            return "  linea                  : nessuna parola ricevuta"
+            return "  line                   : no words received"
         top = sorted(d.hist.items(), key=lambda kv: -kv[1])[:4]
         tot = sum(d.hist.values())
         elenco = ", ".join(f"0x{w:04X} x{n} ({100.0 * n / tot:.0f}%)" for w, n in top)
         primo, quante = top[0]
         if primo in (0xFFFF, SIO_IDLE) and quante > tot * 0.9:
-            verdetto = ("linea ALTA e viva, ma nessuno risponde: il partner sul "
-                        "GBA non sta trasmettendo (banco non in esecuzione, "
-                        "oppure il gioco senza payload). NON e' il pin.")
+            verdetto = ("line HIGH and alive, but nobody answers: the partner on "
+                        "the GBA is not transmitting (test bench not running, "
+                        "or the game has no payload). It is NOT the pin.")
         elif primo == 0x0000 and quante > tot * 0.9:
-            verdetto = ("linea tenuta a MASSA: SD e' sul pin sbagliato, oppure "
-                        "il cavo non porta quel filo.")
+            verdetto = ("line held LOW: SD is on the wrong pin, or "
+                        "the cable does not carry that wire.")
         else:
-            verdetto = ("qualcuno parla ma il framing non torna: timing, "
-                        "oppure SD su un pin che raccoglie rumore.")
-        return (f"  parole fuori frame     : {elenco}\n"
+            verdetto = ("something is talking but framing fails: timing, "
+                        "or SD on a pin picking up noise.")
+        return (f"  words outside frames   : {elenco}\n"
                 f"  -> {verdetto}")
 
 
@@ -1001,7 +1001,7 @@ def main():
     print(f"  {link.stats()}")
     d = link.deframer
     if d.frame_err == 0 and echoed == sent and sent > 0:
-        print("  -> canale integro e TUTTI gli echi tornati: transport a posto")
+        print("  -> channel intact and ALL echoes returned: transport OK")
     elif d.frame_err == 0 and echoed:
         print(f"  -> CHANNEL CLEAN (0 frame errors): the {sent - echoed} missing echoes"
               " are collisions on the GBA TX (single buffer, its own"

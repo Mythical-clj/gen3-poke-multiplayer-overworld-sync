@@ -117,7 +117,7 @@ class WsRelay:
             if "101" not in righe[0]:
                 # Il caso tipico: l'URL punta a una pagina invece che al
                 # frontale. Dirlo per intero, che e' la meta' della diagnosi.
-                raise RuntimeError("il server non ha accettato l'upgrade: %s" % righe[0])
+                raise RuntimeError("server did not accept the upgrade: %s" % righe[0])
             atteso = base64.b64encode(
                 hashlib.sha1((key + GUID).encode()).digest()).decode()
             hdrs = testa.decode("latin-1").lower()
@@ -272,7 +272,7 @@ class WsRelay:
             ln = struct.unpack_from(">Q", b, 2)[0]
             pos = 10
         if ln > MAX_FRAME:
-            raise RuntimeError("frame di %d byte: il relay non manda roba cosi'" % ln)
+            raise RuntimeError("%d-byte frame: the relay never sends that" % ln)
         if masked:
             if len(b) < pos + 4:
                 return None

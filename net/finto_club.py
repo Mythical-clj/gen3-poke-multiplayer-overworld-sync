@@ -413,14 +413,14 @@ class FintoGba:
         from protocol import LINKCMD_NOMI
         voci = ["%s x%d" % (LINKCMD_NOMI.get(k, "0x%04X" % k), v)
                 for k, v in sorted(self.contatori.items())]
-        riga = "comandi ricevuti dal TUO GBA: " + (", ".join(voci) or "nessuno")
+        riga = "commands received from YOUR GBA: " + (", ".join(voci) or "none")
         if self.coppie_possibile:
-            riga += (" | COPPIE %s: frame %d, passi del GBA finto %d, passi dell'amico visti "
-                     "dal GBA finto %d" % ("accese" if self.coppie_on else "SPENTE",
+            riga += (" | PAIRS %s: frames %d, fake-GBA steps %d, friend steps seen "
+                     "by fake GBA %d" % ("on" if self.coppie_on else "OFF",
                                            self.frame, self.passi_miei.passi,
                                            self.passi_amico.passi))
         if self.giri:
-            riga += " | riaperture del link %d, riuscite %d" % (
+            riga += " | link reopens %d, succeeded %d" % (
                 self.giri, self.riaperture_ok)
         return riga
 

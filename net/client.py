@@ -155,11 +155,9 @@ class Bridge:
 
         if busy:
             raise SystemExit(
-                "[client %d] la porta TCP %d e' GIA' IN ASCOLTO.\n"
-                "            C'e' un altro bridge acceso, oppure un emulatore avviato\n"
-                "            in modalita' diretta (build.ps1 -LinkRole server) sulla\n"
-                "            stessa porta. Su Windows i due bind convivono in silenzio\n"
-                "            e le connessioni finiscono su quello sbagliato: mi fermo."
+                "[client %d] TCP port %d is ALREADY IN USE.\n"
+                "            Another bridge or an emulator in direct mode is\n"
+                "            listening on it. Stopping."
                 % (peer_id, port))
 
     def __init__(self, args):
@@ -507,7 +505,7 @@ class Bridge:
                 if self.club_stantii == 1:
                     self.log('[club ] stale EVENT_CLUB from the club that just closed: ignored (the payload queues them at every link reopen)')
                 return
-            self.club_start("il TUO GBA e' entrato al Cable Club",
+            self.club_start("YOUR GBA entered the Cable Club",
                             dal_gba=True)
             return
 
@@ -1441,7 +1439,7 @@ class Bridge:
             self.club_sessions = 0
         self.club_sessions += 1
         if sess.master is None:
-            ruolo = "IN ATTESA (peer %d contro un amico non ancora annunciato)"\
+            ruolo = "WAITING (peer %d, friend not announced yet)"\
                     % self.peer_id
         elif self.peer_id in (1, 2) or self.club_partner_peer in (1, 2):
             ruolo = "%s (dal peer-id, come da protocollo)" \
@@ -1487,11 +1485,11 @@ class Bridge:
             if not self.club_acc.apre(self.peer_id, peer_id, per, presenti):
                 return
             if sub == CLUB_ENTER:
-                self.club_start("l'AMICO (peer %d) e' entrato al Cable Club"
+                self.club_start("FRIEND (peer %d) entered the Cable Club"
                                 % peer_id)
             else:
-                self.club_start("club gia' in corso dall'altra parte: "
-                                "mi aggancio in ritardo")
+                self.club_start("club already running on the other side: "
+                                "joining late")
             if self.club is None:
                 return
 
@@ -1500,7 +1498,7 @@ class Bridge:
             n = self.club_acc.scartati
             if n == 1 or n % 500 == 0:
                 self.log('[club ] peer %d is talking about a club %s: not for us, ignored (the club is two-player; dropped %d)'
-                         % (peer_id, "con il peer %d" % per if per
+                         % (peer_id, "with peer %d" % per if per
                             else 'without a partner', n))
             return
         if esito:
@@ -1535,13 +1533,13 @@ class Bridge:
             return
         self.club_bacheca_detta[peer_id] = per
         if per == self.peer_id:
-            chi = "e vuole farlo con TE"
+            chi = "and wants to do it with YOU"
         elif per:
-            chi = "con il peer %d" % per
+            chi = "with peer %d" % per
         elif len(self.club_presenti()) <= 1:
-            chi = "(siete in due: il partner e' lui)"
+            chi = "(just the two of you: he is the partner)"
         else:
-            chi = "e non ha ancora scelto con chi"
+            chi = "and has not chosen with whom yet"
         self.log('[club ] peer %d is at the Cable Club %s' % (peer_id, chi))
 
     def controlla_versione(self, versione, impronta):
@@ -1861,16 +1859,16 @@ class Bridge:
                     # payload fermo, e l'ultimo [gba ] dice da dove.
                     if self.usb.state_words is not None:
                         eta = time.time() - self.usb.state_stamp
-                        verdetto = ("la sonda pero' PARLA (%.0f s fa): il "
-                                    "payload e' vivo, leggi la riga [gba ]."
+                        verdetto = ("the probe is TALKING (%.0f s ago): the "
+                                    "payload is alive, read the [gba ] line."
                                     % eta) if eta < 7 else (
-                                    "anche la sonda TACE da %.0f s: porta "
-                                    "seriale mai ripresa o payload fermo - "
-                                    "l'ultima riga [gba ] dice dov'era."
+                                    "the probe has been SILENT for %.0f s: serial "
+                                    "port never resumed or payload stopped - "
+                                    "the last [gba ] line says where it was."
                                     % eta)
                     else:
-                        verdetto = ("la sonda non ha MAI parlato: payload "
-                                    "vecchio senza sonda, o mai partito.")
+                        verdetto = ("the probe NEVER spoke: old payload "
+                                    "without a probe, or it never started.")
                     self.log('      !!! GBA SILENT for %d s while the channel is alive. %s'
                              % (muto * 5, verdetto))
             elif self.usb.frames_tx > 20 and frames < 3:
