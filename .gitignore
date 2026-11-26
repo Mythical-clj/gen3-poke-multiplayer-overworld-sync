@@ -9,7 +9,7 @@ mgba/inject.*.lua
 mgba/handoff_test.lua
 
 # --- dati della Mappa live: generati da tools/gen_mappa.py dalla decomp ---
-net/mappa/
+# (mappa: ora committata, inclusa nell exe)
 net/posizioni/
 net/log/
 *.log

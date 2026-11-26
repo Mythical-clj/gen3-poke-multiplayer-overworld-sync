@@ -50,7 +50,7 @@ jobs:
             ADD="$ADD --add-data $f;."
           done
           pyinstaller --onefile --console --name gblink \
-            $ADD --add-data "mappa.html;." --add-data "mbstub.gba;." --add-data "img;img" --add-data "../web/fonts;fonts" \
+            $ADD --add-data "mappa.html;." --add-data "mbstub.gba;." --add-data "img;img" --add-data "mappa;mappa" --add-data "../web/fonts;fonts" \
             --collect-binaries libusb_package --collect-submodules usb \
             --hidden-import tkinter --hidden-import tkinter.ttk \
             --hidden-import http.server --hidden-import tkinter.filedialog --hidden-import tkinter.messagebox \
