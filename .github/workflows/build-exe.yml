@@ -2,7 +2,7 @@ name: Build Windows exe
 on:
   workflow_dispatch:
   push:
-    paths: ["net/**", ".github/workflows/build-exe.yml"]
+    paths: ["net/**", "hw/mbstub/**", "payload/**", "build.ps1", ".github/workflows/build-exe.yml"]
 permissions:
   contents: write
 jobs:
