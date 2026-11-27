@@ -532,7 +532,22 @@ class Bridge:
         #
         # La mappa dell'evento serve ancora, ma solo per il tracking locale:
         # vedi peer_room in handle_udp.
-        self.map_key = extract_map_key(event)
+        # Solo gli eventi di POSIZIONE hanno la mappa nei byte 4-5: in quelli
+        # sociali (kind 15) sono dati, e leggerli come mappa farebbe saltare
+        # il filtro delle mappe lontane.
+        if event and event[0] in (1, 2, 3):
+            self.map_key = extract_map_key(event)
+
+        # CHI COMBATTE / CHI GUARDA (2026-11-27): il traffico dello spettatore
+        # va solo a chi lo usa. Lo si deduce da cio' che il PROPRIO GBA manda:
+        # JOIN/ACK (19/22) = sta guardando; MON/TEXT/SETUP/REC (16/18/20/21)
+        # o INFO con a != 0 (17) = sta combattendo.
+        if event and event[0] == self.EV_SOCIAL and len(event) >= 3:
+            sub = event[1]
+            if sub in (19, 22):
+                self.spec_watching_until = now + self.SPEC_HOLD_S
+            elif sub in (16, 18, 20, 21) or (sub == 17 and event[2] != 0):
+                self.spec_fighting_until = now + self.SPEC_HOLD_S
 
         self.ricorda_presenza(event)
         self.ultimo_evento_at = now
@@ -740,7 +755,7 @@ class Bridge:
         event = body[:EVENT_SIZE]
         # La mappa dell'ultimo evento di questo peer: serve al T_BYE, che deve
         # dire al payload SU QUALE mappa l'avatar da togliere si trovava.
-        peer_map = extract_map_key(event)
+        peer_map = extract_map_key(event) if event[0] in (1, 2, 3) else None
         if peer_map is not None:
             self.peer_room[peer_id] = peer_map
 
@@ -776,6 +791,24 @@ class Bridge:
 
     EV_STEP, EV_SYNC, EV_TURN = 1, 2, 3
     HEAL_MAX = 3
+    # Il traffico dello spettatore (kind 15, sub 16..22) arriva solo a chi lo
+    # usa: INFO (17) a tutti, perche' dice "sta combattendo"; JOIN/ACK
+    # (19/22) a chi combatte; il resto (flusso dati) a chi guarda.
+    EV_SOCIAL = 15
+    SPEC_HOLD_S = 4.0
+    spec_watching_until = 0.0
+    spec_fighting_until = 0.0
+    spec_dropped = 0
+
+    def _spec_wanted(self, event):
+        sub = event[1]
+        now = time.monotonic()
+        if sub == 17:
+            return True
+        if sub in (19, 22):
+            return now < self.spec_fighting_until
+        return now < self.spec_watching_until
+
     # Eventi di chi sta su un'altra mappa: vedi heal_and_deliver.
     FAR_MAP_FILTER = True
     FAR_SYNC_S = 3.0
@@ -836,6 +869,9 @@ class Bridge:
                 self.stato_amici[peer_id] = event[1]
                 self.log('[state] friend %d -> %s  (from the network, to the GBA)'
                          % (peer_id, nome_stato(event[1])))
+            if kind == self.EV_SOCIAL and event[1] >= 16 and not self._spec_wanted(event):
+                self.spec_dropped += 1
+                return
             if kind == EV_CARD:
                 self._pezzo_scheda(peer_id, event)
             if kind == EV_PARTY:

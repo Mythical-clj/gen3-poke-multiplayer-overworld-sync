@@ -259,5 +259,36 @@ class TestMappaLontana(unittest.TestCase):
         self.assertEqual(len(b.consegnati), n + 1)
 
 
+class TestTrafficoSpettatore(unittest.TestCase):
+    def _soc(self, sub, a=1):
+        return struct.pack("<BBBBBBBBBBBB", 15, sub, a, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    def test_chi_non_partecipa_non_riceve_il_flusso(self):
+        b = BridgeFinto()
+        b.heal_and_deliver(7, self._soc(17))       # INFO: arriva sempre
+        self.assertEqual(len(b.consegnati), 1)
+        for sub in (16, 18, 20, 21, 19, 22):       # flusso, JOIN, ACK
+            b.heal_and_deliver(7, self._soc(sub))
+        self.assertEqual(len(b.consegnati), 1)
+        self.assertEqual(b.spec_dropped, 6)
+
+    def test_lo_spettatore_riceve_il_flusso_ma_non_join(self):
+        import time as _t
+        b = BridgeFinto()
+        b.spec_watching_until = _t.monotonic() + 3
+        b.heal_and_deliver(7, self._soc(21))
+        b.heal_and_deliver(7, self._soc(19))
+        self.assertEqual(len(b.consegnati), 1)
+
+    def test_il_combattente_riceve_join_e_ack(self):
+        import time as _t
+        b = BridgeFinto()
+        b.spec_fighting_until = _t.monotonic() + 3
+        b.heal_and_deliver(7, self._soc(19))
+        b.heal_and_deliver(7, self._soc(22))
+        b.heal_and_deliver(7, self._soc(21))       # il flusso no: non guarda
+        self.assertEqual(len(b.consegnati), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
