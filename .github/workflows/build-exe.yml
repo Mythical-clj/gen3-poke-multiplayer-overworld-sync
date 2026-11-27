@@ -1,4 +1,4 @@
-name: Build Windows exe
+name: Build Windows exe and Mac app
 on:
   workflow_dispatch:
   push:
@@ -8,6 +8,8 @@ permissions:
 jobs:
   exe:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.rel.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -64,10 +66,77 @@ jobs:
         with:
           name: gblink-windows
           path: net/dist/gblink.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mbstub
+          path: net/mbstub.gba
       - name: Release
+        id: rel
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=client-$(date -u +%Y%m%d-%H%M)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           gh release create "$TAG" net/dist/gblink.exe net/mbstub.gba --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. The multiboot stub and the map data are inside; nothing else to install."
+
+  mac:
+    needs: exe
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: apple-silicon
+          - os: macos-15-intel
+            name: intel
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyinstaller pyusb libusb-package
+      - uses: actions/download-artifact@v4
+        with:
+          name: mbstub
+          path: net
+      - name: Build
+        run: |
+          cd net
+          ADD=""
+          for f in client.py relay.py relay_ws.py mb_multi.py usb_link.py finto_club.py; do
+            ADD="$ADD --add-data $f:."
+          done
+          pyinstaller --onefile --console --name gblink-mac \
+            $ADD --add-data "mappa.html:." --add-data "mbstub.gba:." --add-data "img:img" --add-data "mappa:mappa" --add-data "../web/fonts:fonts" \
+            --collect-binaries libusb_package --collect-submodules usb \
+            --hidden-import tkinter --hidden-import tkinter.ttk \
+            --hidden-import http.server --hidden-import tkinter.filedialog --hidden-import tkinter.messagebox \
+            --paths . gui.py
+      - name: Check it starts
+        run: |
+          cd net
+          ./dist/gblink-mac -u relay.py --help | head -3
+          python -c "import tkinter; print('tk', tkinter.TkVersion)"
+      - name: Pack
+        run: |
+          cd net/dist
+          chmod +x gblink-mac
+          cat > READ-ME-FIRST.txt <<'EOF'
+          gblink for Mac
+          1. Unzip, then open Terminal in this folder.
+          2. Run once:  xattr -dr com.apple.quarantine gblink-mac && chmod +x gblink-mac
+          3. Start it:  ./gblink-mac   (a small window opens)
+          Plug the adapter in before pressing Play. No driver is needed.
+          EOF
+          zip gblink-mac-${{ matrix.name }}.zip gblink-mac READ-ME-FIRST.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gblink-mac-${{ matrix.name }}
+          path: net/dist/gblink-mac-${{ matrix.name }}.zip
+      - name: Add to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.exe.outputs.tag }}" net/dist/gblink-mac-${{ matrix.name }}.zip
