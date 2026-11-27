@@ -317,6 +317,13 @@ class App:
 
     def advance_play(self, sy, procs):
         """Called every refresh: moves from loading the game to playing."""
+        if self.play_stage == "unjam":
+            # The failed load attempt can leave the adapter half-way through
+            # a transfer: restart it, then connect.
+            if not procs["sblocca"]["vivo"]:
+                self.play_stage = "boot"
+                self.root.after(1500, self.go_play)
+            return
         if self.play_stage != "load" or procs["multiboot"]["vivo"]:
             return
         if sy["caricato"]:
@@ -327,10 +334,13 @@ class App:
             self.load_tries += 1          # a GBA was waiting: the transfer slipped, try again
             self.start("multiboot")
         else:
-            self.play_stage = None        # nobody was waiting: the game is already running
             self.p.sintesi["avviso"] = None
-            self.note("No GBA is waiting for a program: connecting to the game that is already running.")
-            self.start("gioca")
+            self.note("No GBA is waiting for a program: restarting the adapter, then connecting to the game that is already running.")
+            if self.start("sblocca"):
+                self.play_stage = "unjam"
+            else:
+                self.play_stage = None
+                self.start("gioca")
 
     def open_map(self):
         mdir = find_map_dir()
@@ -422,7 +432,7 @@ class App:
         sy, procs = s["sintesi"], s["processi"]
         if sy["mappa"]:
             gba = "GBA: in game (map %s)" % sy["mappa"]
-        elif self.play_stage in ("load", "boot"):
+        elif self.play_stage in ("load", "boot", "unjam"):
             gba = "GBA: loading the game..."
         elif procs["gioca"]["vivo"]:
             gba = "GBA: connecting..."
