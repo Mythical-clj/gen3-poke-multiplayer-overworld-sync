@@ -30,7 +30,11 @@ if len(sys.argv) >= 3 and sys.argv[1] == "-u" and sys.argv[2].endswith(".py"):
 # unpacks to a temporary folder that disappears when it closes). Children
 # inherit these variables, so the client writes the positions where the map
 # server reads them.
-DATA = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "gblink")
+if sys.platform == "darwin":
+    _BASE = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+else:
+    _BASE = os.environ.get("APPDATA") or os.path.expanduser("~")
+DATA = os.path.join(_BASE, "gblink")
 os.makedirs(os.path.join(DATA, "posizioni"), exist_ok=True)
 os.environ.setdefault("PANNELLO_CONFIG", os.path.join(DATA, "config.json"))
 os.environ.setdefault("PANNELLO_LOG", os.path.join(DATA, "log"))

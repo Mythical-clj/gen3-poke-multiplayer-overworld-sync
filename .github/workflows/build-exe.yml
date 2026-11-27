@@ -102,14 +102,14 @@ jobs:
         with:
           name: mbstub
           path: net
-      - name: Build
+      - name: Build the app
         run: |
           cd net
           ADD=""
           for f in client.py relay.py relay_ws.py mb_multi.py usb_link.py finto_club.py; do
             ADD="$ADD --add-data $f:."
           done
-          pyinstaller --onefile --console --name gblink-mac \
+          pyinstaller --onedir --windowed --name gblink --noconfirm \
             $ADD --add-data "mappa.html:." --add-data "mbstub.gba:." --add-data "img:img" --add-data "mappa:mappa" --add-data "../web/fonts:fonts" \
             --collect-binaries libusb_package --collect-submodules usb \
             --hidden-import tkinter --hidden-import tkinter.ttk \
@@ -118,20 +118,23 @@ jobs:
       - name: Check it starts
         run: |
           cd net
-          ./dist/gblink-mac -u relay.py --help | head -3
+          ./dist/gblink.app/Contents/MacOS/gblink -u relay.py --help | head -3
           python -c "import tkinter; print('tk', tkinter.TkVersion)"
+          codesign -dv dist/gblink.app 2>&1 | head -3 || true
       - name: Pack
         run: |
           cd net/dist
-          chmod +x gblink-mac
           cat > READ-ME-FIRST.txt <<'EOF'
           gblink for Mac
-          1. Unzip, then open Terminal in this folder.
-          2. Run once:  xattr -dr com.apple.quarantine gblink-mac && chmod +x gblink-mac
-          3. Start it:  ./gblink-mac   (a small window opens)
-          Plug the adapter in before pressing Play. No driver is needed.
+          1. Unzip and drag gblink to Applications (or leave it anywhere).
+          2. The first time: right-click gblink, choose Open, then Open again.
+             (If macOS still refuses: System Settings > Privacy & Security >
+             scroll down > Open Anyway.)
+          3. Plug the adapter in, press Play.
+          No driver and no Terminal needed.
           EOF
-          zip gblink-mac-${{ matrix.name }}.zip gblink-mac READ-ME-FIRST.txt
+          mkdir pack && cp -R gblink.app READ-ME-FIRST.txt pack/
+          ditto -c -k --keepParent pack gblink-mac-${{ matrix.name }}.zip
       - uses: actions/upload-artifact@v4
         with:
           name: gblink-mac-${{ matrix.name }}
