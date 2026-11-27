@@ -431,7 +431,7 @@ class Pannello:
             porta = int(c["relay"].partition(":")[2])
             return self.proc["relay"].avvia(
                 [py, "-u", os.path.join(QUI, "relay.py"),
-                 "--port", str(porta), "--verbose"])
+                 "--port", str(porta)])
 
         if cosa in ("multiboot", "gioca", "sblocca"):
             occupato = self.usb_occupato()
