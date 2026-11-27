@@ -1905,6 +1905,11 @@ class Bridge:
             prev_received = getattr(self, "_prev_received", 0)
             self._prev_received = self.received
 
+            if frames == 0 and words > 0 and stalled == 0 and self.usb.frames_tx == 0:
+                try:
+                    self.log('      ' + self.usb.diagnosi_linea().strip())
+                except Exception:
+                    pass
             if stalled >= 2:
                 self.log('      !!! GBA CHANNEL STUCK: no new words on the wire for %d reads (total words stuck at %d). The adapter is jammed: run 3-sblocca.bat (usb_link.py --riavvia) and start this again WITHOUT powering off the GBA - the program lives in RAM.'
                          % (stalled + 1, words))
