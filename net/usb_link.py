@@ -355,7 +355,7 @@ class UsbLink:
         # opzionale (F-1), e StartHandshake che fa partire il PIO.
         self._cmd(bytes([CMD_CANCEL]), 0.6, "Cancel")
         self._cmd(bytes([CMD_SET_MODE, MODE_GBA_PASSTHROUGH]), 0.3,
-                  "SetMode raw relay (rilevazione cavo ADESSO)")
+                  "SetMode raw relay (cable detection NOW)")
         self._cmd(bytes([CMD_SET_MODE_MASTER]), 0.2, "master")
         # F-3: DEVE stare fra SetMode e StartHandshake. SetMode ha appena fatto
         # la rilevazione automatica; StartHandshake e' il momento in cui il
@@ -363,12 +363,12 @@ class UsbLink:
         # c'e' la finestra per correggerlo.
         if self.cable != "auto":
             self._cmd(bytes([CMD_SET_CABLE_TYPE, CABLE_TYPES[self.cable]]), 0.2,
-                      f"cavo forzato: {self.cable} "
-                      f"(SD su GP{3 if self.cable == 'gba' else 4})")
+                      f"cable forced: {self.cable} "
+                      f"(SD on GP{3 if self.cable == 'gba' else 4})")
         if self.timing is not None:
             self._cmd(bytes([CMD_SET_RAW_TIMING])
                       + int(self.timing).to_bytes(4, "little"), 0.2,
-                      f"timing {self.timing} iterazioni PIO")
+                      f"timing {self.timing} PIO iterations")
         self._cmd(bytes([CMD_START_HANDSHAKE]), 0.2, "StartHandshake")
 
         self._stop.clear()
@@ -592,7 +592,7 @@ class UsbLink:
         self._cmd(bytes([CMD_SET_MODE_MASTER]), 0.2, "master")
         if self.cable != "auto":
             self._cmd(bytes([CMD_SET_CABLE_TYPE, CABLE_TYPES[self.cable]]), 0.2,
-                      f"cavo forzato: {self.cable}")
+                      f"cable forced: {self.cable}")
         if self.timing is not None:
             self._cmd(bytes([CMD_SET_RAW_TIMING])
                       + int(self.timing).to_bytes(4, "little"), 0.2,
@@ -945,7 +945,7 @@ def main():
         print("[usb ] restarting the Pico (F-4)...")
         sparito, ricomparso = riavvia_pico()
         if ricomparso:
-            print("[usb ] sparito e ricomparso: riavvio avvenuto, canale pulito")
+            print("[usb ] it vanished and came back: restart done, channel clean")
             return 0
         if not sparito:
             print("[usb ] the Pico NEVER disappeared from the bus: its firmware does not "

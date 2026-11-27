@@ -251,7 +251,7 @@ class TestServer(unittest.TestCase):
         self.assertTrue(r["ok"], r.get("messaggio"))
 
         # Il giro completo: relay.py -> pipe -> ring buffer -> /api/tick.
-        atteso = "in ascolto su UDP %d" % porta_relay
+        atteso = "listening on UDP %d" % porta_relay
         trovato = False
         for _ in range(60):
             s = json.loads(self.get("/api/tick?da=0"))

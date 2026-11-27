@@ -155,7 +155,7 @@ class Relay:
                 "[relay] UDP port %d already in use (%s): is a relay already running?"
                 % (port, exc))
         self.sock.settimeout(0.5)
-        self.log("in ascolto su UDP %d, timeout peer %ds" % (port, timeout))
+        self.log("listening on UDP %d, peer timeout %ds" % (port, timeout))
 
     def log(self, msg):
         print("[relay] %s" % msg, flush=True)
@@ -416,7 +416,7 @@ class Relay:
         if peer is None:
             peer = Peer(addr, peer_id)
             self.peers[addr] = peer
-            self.log("nuovo peer %d da %s:%d" % (peer_id, addr[0], addr[1]))
+            self.log("new peer %d from %s:%d" % (peer_id, addr[0], addr[1]))
 
         peer.last_seen = time.monotonic()
         peer.peer_id = peer_id
@@ -564,7 +564,7 @@ class Relay:
     def drop(self, peer, reason):
         self.leave_room(peer, notify=True)
         self.peers.pop(peer.addr, None)
-        self.log("peer %d rimosso (%s), rx %d tx %d"
+        self.log("peer %d removed (%s), rx %d tx %d"
                  % (peer.peer_id, reason, peer.rx, peer.tx))
 
     def sweep(self):
@@ -579,7 +579,7 @@ class Relay:
                 # sotto. Nel registro del va-e-vieni del 30/08 questa riga non
                 # c'era, e quella distinzione e' rimasta indovinabile per ore.
                 ultimo = TYPE_NAMES.get(peer.last_kind, "niente")
-                self.drop(peer, "silenzio da %ds (ultimo pacchetto: %s)"
+                self.drop(peer, "silent for %ds (last packet: %s)"
                           % (self.timeout, ultimo))
                 continue
 

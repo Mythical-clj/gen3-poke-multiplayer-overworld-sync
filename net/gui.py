@@ -304,6 +304,12 @@ class App:
         else:
             self.start("gioca")
 
+    def note(self, text):
+        self.log.configure(state="normal")
+        self.log.insert("end", text + "\n")
+        self.log.configure(state="disabled")
+        self.log.see("end")
+
     def go_play(self):
         if self.play_stage == "boot":
             self.play_stage = None
@@ -323,6 +329,7 @@ class App:
         else:
             self.play_stage = None        # nobody was waiting: the game is already running
             self.p.sintesi["avviso"] = None
+            self.note("No GBA is waiting for a program: connecting to the game that is already running.")
             self.start("gioca")
 
     def open_map(self):
@@ -387,6 +394,8 @@ class App:
             prefix = "[%s]" % r["chi"]
             if text.startswith(prefix):
                 text = text[len(prefix):].lstrip()
+            if r["chi"] == "multiboot" and self.play_stage and "DONE" not in text and not self.detail.get():
+                continue        # Play's quick loader try: only success is worth showing
             bad = any(w in text for w in ("!!!", "FAILED", "ERROR", "cannot", "NO EMULATOR"))
             if not (bad or self.detail.get() or IMPORTANT.search(text)):
                 continue

@@ -791,6 +791,10 @@ class Bridge:
 
     EV_STEP, EV_SYNC, EV_TURN = 1, 2, 3
     HEAL_MAX = 3
+    # Adapter LED colours (r, g, b): the firmware shows them at full strength,
+    # so these are small numbers.
+    LED_OK = (0, 6, 0)
+    LED_STUCK = (10, 4, 0)
     # Il traffico dello spettatore (kind 15, sub 16..22) arriva solo a chi lo
     # usa: INFO (17) a tutti, perche' dice "sta combattendo"; JOIN/ACK
     # (19/22) a chi combatte; il resto (flusso dati) a chi guarda.
@@ -1869,18 +1873,23 @@ class Bridge:
             # log e nessuna la gridava. Un contatore che smette di salire e'
             # un guasto quanto uno che non parte mai.
             words = self.usb.deframer.words_rx
-            # The adapter's LED turns green while the GBA is talking (the
-            # firmware's own colour for the link is blue). Resent every 10 s in
-            # case the firmware paints over it.
-            now_led = time.monotonic()
-            if words > 0 and now_led - getattr(self, "_led_at", 0.0) >= 10.0:
-                self._led_at = now_led
-                self.usb.set_led(0, 160, 0)
             prev = getattr(self, "_prev_words_rx", None)
             stalled = getattr(self, "_stalled_prints", 0)
             stalled = stalled + 1 if (prev is not None and words == prev) else 0
             self._prev_words_rx = words
             self._stalled_prints = stalled
+
+            # The adapter's LED: dim green while words keep arriving from the
+            # GBA, dim amber when the channel is stuck (the firmware's own
+            # colour for the link is blue). Resent every 10 s in case the
+            # firmware paints over it.
+            now_led = time.monotonic()
+            if words > 0 and now_led - getattr(self, "_led_at", 0.0) >= 10.0:
+                self._led_at = now_led
+                if stalled >= 1:
+                    self.usb.set_led(*self.LED_STUCK)
+                else:
+                    self.usb.set_led(*self.LED_OK)
 
             # Il filo puo' essere vivo (parole che scorrono) mentre il GBA non
             # manda piu' NESSUN frame: sono due cose diverse e vanno contate

@@ -334,7 +334,7 @@ class Multiboot:
         if visti:
             top = sorted(visti.items(), key=lambda kv: -kv[1])[:4]
             tot = sum(visti.values())
-            self._log("risposte viste al detect: "
+            self._log("answers seen at detect: "
                       + ", ".join(f"0x{v:04X} x{n} ({n * 100 // tot}%)"
                                   for v, n in top))
             dom, ndom = top[0]
@@ -347,14 +347,15 @@ class Multiboot:
                           "even on a GB-Link); less often SD on the wrong "
                           "pin or a missing wire")
         raise MultibootError(
-            "il GBA non ha mai risposto 0x7202 al detect.\n"
-            "       Le cause, in ordine di probabilita':\n"
-            "       - il firmware del Pico non e' celio.uf2 di questo\n"
-            "         progetto (quello di fabbrica, Celio o GB-Link, non basta);\n"
-            "       - il GBA non e' in attesa di multiboot (slot cartuccia\n"
-            "         VUOTO, e acceso DOPO aver collegato il cavo);\n"
-            "       - il cavo e' nel verso sbagliato (il verso e' marcato);\n"
-            "       - SW1 non e' su 3,3 V.")
+            "the GBA never answered 0x7202 at detect.\n"
+            "       Causes, most likely first:\n"
+            "       - the game is already running (cartridge in the slot): nothing to load;\n"
+            "       - the Pico firmware is not this project's celio.uf2\n"
+            "         (the factory Celio or GB-Link one is not enough);\n"
+            "       - the GBA is not waiting for multiboot (cartridge slot\n"
+            "         EMPTY, and turned on AFTER the cable was plugged in);\n"
+            "       - the cable is the wrong way round (the direction is marked);\n"
+            "       - SW1 is not on 3.3 V.")
 
     def _header(self, rom, n_palette=4, coda=()):
         """2-4. 0x610y, i 96 half-word di header, poi 0x6200 e 0x620y.
@@ -683,7 +684,7 @@ class Multiboot:
             except MultibootError as e:
                 self.desync += 1
                 ultimo = e
-                self._log(f"FALLITO: {e}")
+                self._log(f"FAILED: {e}")
                 if self.verbose:
                     self.dump_trace()
         raise MultibootError(
@@ -1169,7 +1170,7 @@ def main():
         try:
             st = mb.run(rom)
         except MultibootError as e:
-            print(f"\n[mb  ] FALLITO: {e}")
+            print(f"\n[mb  ] FAILED: {e}")
             return 1
         stampa_rapporto(st)
 
