@@ -51,7 +51,7 @@ jobs:
           for f in client.py relay.py relay_ws.py mb_multi.py usb_link.py finto_club.py; do
             ADD="$ADD --add-data $f;."
           done
-          pyinstaller --onefile --console --name gblink \
+          pyinstaller --onefile --console --name EmeraldClient \
             $ADD --add-data "mappa.html;." --add-data "mbstub.gba;." --add-data "img;img" --add-data "mappa;mappa" --add-data "../web/fonts;fonts" \
             --collect-binaries libusb_package --collect-submodules usb \
             --hidden-import tkinter --hidden-import tkinter.ttk \
@@ -61,11 +61,11 @@ jobs:
         shell: bash
         run: |
           cd net
-          ./dist/gblink.exe -u relay.py --help | head -3
+          ./dist/EmeraldClient.exe -u relay.py --help | head -3
       - uses: actions/upload-artifact@v4
         with:
-          name: gblink-windows
-          path: net/dist/gblink.exe
+          name: EmeraldClient-windows
+          path: net/dist/EmeraldClient.exe
       - uses: actions/upload-artifact@v4
         with:
           name: mbstub
@@ -78,7 +78,7 @@ jobs:
         run: |
           TAG=client-$(date -u +%Y%m%d-%H%M)
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          gh release create "$TAG" net/dist/gblink.exe net/mbstub.gba --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. The multiboot stub and the map data are inside; nothing else to install."
+          gh release create "$TAG" net/dist/EmeraldClient.exe net/mbstub.gba --title "Client $TAG" --notes "EmeraldClient.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. The multiboot stub and the map data are inside; nothing else to install."
 
   mac:
     needs: exe
@@ -109,7 +109,7 @@ jobs:
           for f in client.py relay.py relay_ws.py mb_multi.py usb_link.py finto_club.py; do
             ADD="$ADD --add-data $f:."
           done
-          pyinstaller --onedir --windowed --name gblink --noconfirm \
+          pyinstaller --onedir --windowed --name EmeraldClient --noconfirm \
             $ADD --add-data "mappa.html:." --add-data "mbstub.gba:." --add-data "img:img" --add-data "mappa:mappa" --add-data "../web/fonts:fonts" \
             --collect-binaries libusb_package --collect-submodules usb \
             --hidden-import tkinter --hidden-import tkinter.ttk \
@@ -118,28 +118,28 @@ jobs:
       - name: Check it starts
         run: |
           cd net
-          ./dist/gblink.app/Contents/MacOS/gblink -u relay.py --help | head -3
+          ./dist/EmeraldClient.app/Contents/MacOS/EmeraldClient -u relay.py --help | head -3
           python -c "import tkinter; print('tk', tkinter.TkVersion)"
-          codesign -dv dist/gblink.app 2>&1 | head -3 || true
+          codesign -dv dist/EmeraldClient.app 2>&1 | head -3 || true
       - name: Pack
         run: |
           cd net/dist
           cat > READ-ME-FIRST.txt <<'EOF'
-          gblink for Mac
-          1. Unzip and drag gblink to Applications (or leave it anywhere).
-          2. The first time: right-click gblink, choose Open, then Open again.
+          EmeraldClient for Mac
+          1. Unzip and drag EmeraldClient to Applications (or leave it anywhere).
+          2. The first time: right-click EmeraldClient, choose Open, then Open again.
              (If macOS still refuses: System Settings > Privacy & Security >
              scroll down > Open Anyway.)
           3. Plug the adapter in, press Play.
           No driver and no Terminal needed.
           EOF
-          mkdir pack && cp -R gblink.app READ-ME-FIRST.txt pack/
-          ditto -c -k --keepParent pack gblink-mac-${{ matrix.name }}.zip
+          mkdir pack && cp -R EmeraldClient.app READ-ME-FIRST.txt pack/
+          ditto -c -k --keepParent pack EmeraldClient-mac-${{ matrix.name }}.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: gblink-mac-${{ matrix.name }}
-          path: net/dist/gblink-mac-${{ matrix.name }}.zip
+          name: EmeraldClient-mac-${{ matrix.name }}
+          path: net/dist/EmeraldClient-mac-${{ matrix.name }}.zip
       - name: Add to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.exe.outputs.tag }}" net/dist/gblink-mac-${{ matrix.name }}.zip
+        run: gh release upload "${{ needs.exe.outputs.tag }}" net/dist/EmeraldClient-mac-${{ matrix.name }}.zip

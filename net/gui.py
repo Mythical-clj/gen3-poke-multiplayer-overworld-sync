@@ -1,8 +1,8 @@
-"""gblink.exe: one small window (no Python needed) + a live map in your browser.
+"""EmeraldClient.exe: one small window (no Python needed) + a live map in your browser.
 
 The engine is pannello.py (it starts relay.py, mb_multi.py, client.py,
 usb_link.py as child processes). When the exe is started as
-`gblink.exe -u script.py args` it runs that script instead of opening the
+`EmeraldClient.exe -u script.py args` it runs that script instead of opening the
 window: that is how the window starts its children.
 """
 import os
@@ -110,7 +110,7 @@ class App:
         self.load_tries = 0
         self.httpd = None
         self.map_port = None
-        root.title("gblink")
+        root.title("EmeraldClient")
         root.geometry("720x600")
         root.minsize(620, 520)
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -275,7 +275,7 @@ class App:
             return False
         if what == "multiboot":
             if find_stub() is None:
-                self.msg.set("mbstub.gba was not found. Put it next to gblink.exe, "
+                self.msg.set("mbstub.gba was not found. Put it next to EmeraldClient.exe, "
                              "or choose it under More options.")
                 return False
             os.environ["MBSTUB_PATH"] = find_stub()
@@ -350,9 +350,9 @@ class App:
         mdir = find_map_dir()
         if mdir is None:
             messagebox.showinfo("Live map",
-                                "The map pictures were not found (they are normally built into gblink.exe).\n\n"
+                                "The map pictures were not found (they are normally built into EmeraldClient.exe).\n\n"
                                 "Pick a 'mappa' folder (the one with dati.json), "
-                                "or put it next to gblink.exe.")
+                                "or put it next to EmeraldClient.exe.")
             mdir = self.pick_map()
             if mdir is None:
                 return
@@ -390,7 +390,7 @@ class App:
         self.msg.set("")
 
     def save_log(self):
-        path = filedialog.asksaveasfilename(defaultextension=".log", initialfile="gblink.log",
+        path = filedialog.asksaveasfilename(defaultextension=".log", initialfile="EmeraldClient.log",
                                             filetypes=[("Log", "*.log"), ("Text", "*.txt")])
         if path:
             try:
