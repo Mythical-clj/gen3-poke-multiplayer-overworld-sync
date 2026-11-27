@@ -92,9 +92,8 @@ def find_map_dir():
 # The window log shows only these by default; "Show details" shows everything
 # (Copy/Save always export the full log).
 IMPORTANT = re.compile(
-    r"connect|session|club|battle|trade|role|master|slave|friend|peer|room|"
-    r"started|stopped|ready|done|loaded|warning|stuck|silent|lost|closed|"
-    r"timeout|retry|sent \d|map |build ", re.I)
+    r"connect|club|battle|trade|friend|room|ready|done|loaded|warning|"
+    r"stuck|lost|closed|timeout|joined|left", re.I)
 
 
 class App:
@@ -103,6 +102,8 @@ class App:
         self.p = pannello.Pannello()
         self.seq = 0
         self.dirty = False
+        self.play_stage = None      # "load" while the game is being sent to the GBA
+        self.load_tries = 0
         self.httpd = None
         self.map_port = None
         root.title("gblink")
@@ -124,10 +125,9 @@ class App:
 
         big = ttk.Frame(root, padding=(12, 0))
         big.pack(fill="x")
-        self.btn_load = ttk.Button(big, text="1. Load game into GBA", command=lambda: self.toggle("multiboot"))
-        self.btn_play = ttk.Button(big, text="2. Play", command=self.toggle_play)
+        self.btn_play = ttk.Button(big, text="Play", command=self.toggle_play)
         self.btn_map = ttk.Button(big, text="Live map", command=self.open_map)
-        for b in (self.btn_load, self.btn_play, self.btn_map):
+        for b in (self.btn_play, self.btn_map):
             b.pack(side="left", expand=True, fill="x", padx=4, ipady=10)
         self.msg = tk.StringVar(value="")
         ttk.Label(root, textvariable=self.msg, foreground=RED, wraplength=680).pack(anchor="w", padx=16, pady=(6, 0))
@@ -164,6 +164,8 @@ class App:
         row2 = ttk.Frame(self.adv)
         row2.pack(fill="x", pady=(6, 0))
         ttk.Button(row2, text="Unjam adapter", command=lambda: self.start("sblocca")).pack(side="left", padx=(0, 6))
+        self.btn_load = ttk.Button(row2, text="Load game only", command=lambda: self.toggle("multiboot"))
+        self.btn_load.pack(side="left", padx=(0, 6))
         self.btn_finto = ttk.Button(row2, text="Test alone (fake partner)", command=lambda: self.toggle("finto"))
         self.btn_finto.pack(side="left", padx=(0, 6))
         ttk.Button(row2, text="Choose mbstub.gba...", command=self.pick_stub).pack(side="left", padx=(0, 6))
@@ -284,14 +286,44 @@ class App:
             self.start(what)
 
     def toggle_play(self):
-        if self.p.proc["gioca"].vivo():
+        # Play = send the game to the GBA if one is waiting for it, then connect.
+        # With the game already on a cartridge nothing answers the loader, and
+        # it goes straight to the link.
+        if self.play_stage or self.p.proc["gioca"].vivo() or self.p.proc["multiboot"].vivo():
+            self.play_stage = None
+            self.p.ferma("multiboot")
             self.p.ferma("gioca")
             return
         if not self.save():
             return
         if self.v_host.get() and not self.p.proc["relay"].vivo():
             self.p.avvia("relay")     # the host's relay starts by itself
-        self.start("gioca")
+        self.load_tries = 0
+        if find_stub() is not None and self.start("multiboot"):
+            self.play_stage = "load"
+        else:
+            self.start("gioca")
+
+    def go_play(self):
+        if self.play_stage == "boot":
+            self.play_stage = None
+            self.start("gioca")
+
+    def advance_play(self, sy, procs):
+        """Called every refresh: moves from loading the game to playing."""
+        if self.play_stage != "load" or procs["multiboot"]["vivo"]:
+            return
+        if sy["caricato"]:
+            # The adapter restarts itself after the transfer: give it a moment.
+            self.play_stage = "boot"
+            self.root.after(2500, self.go_play)
+        elif sy["mb_visto"] and self.load_tries < 2:
+            self.load_tries += 1          # a GBA was waiting: the transfer slipped, try again
+            self.start("multiboot")
+        else:
+            self.play_stage = None        # nobody was waiting: the game is already running
+            self.p.sintesi["avviso"] = None
+            self.start("gioca")
 
     def open_map(self):
         mdir = find_map_dir()
@@ -381,8 +413,10 @@ class App:
         sy, procs = s["sintesi"], s["processi"]
         if sy["mappa"]:
             gba = "GBA: in game (map %s)" % sy["mappa"]
-        elif sy["caricato"]:
-            gba = "GBA: program loaded"
+        elif self.play_stage in ("load", "boot"):
+            gba = "GBA: loading the game..."
+        elif procs["gioca"]["vivo"]:
+            gba = "GBA: connecting..."
         else:
             gba = "GBA: stopped"
         parts = [gba, "Friend: connected" if sy["amico"] else "Friend: waiting"]
@@ -396,8 +430,10 @@ class App:
             self.warn_label.pack(fill="x", pady=(6, 0))
         else:
             self.warn_label.pack_forget()
-        self.btn_load.configure(text="1. Stop loading" if procs["multiboot"]["vivo"] else "1. Load game into GBA")
-        self.btn_play.configure(text="2. Stop" if procs["gioca"]["vivo"] else "2. Play")
+        self.btn_load.configure(text="Stop loading" if procs["multiboot"]["vivo"] else "Load game only")
+        busy = self.play_stage or procs["gioca"]["vivo"] or procs["multiboot"]["vivo"]
+        self.btn_play.configure(text="Stop" if busy else "Play")
+        self.advance_play(sy, procs)
         self.btn_finto.configure(text="Stop the fake partner" if procs["finto"]["vivo"]
                                  else "Test alone (fake partner)")
 

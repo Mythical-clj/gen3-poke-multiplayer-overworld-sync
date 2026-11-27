@@ -322,7 +322,7 @@ class Multiboot:
             self._keep_fed(CMD_HANDSHAKE)
             w = self._pull(timeout=3.0, fase="detect")
             if (w & 0xFFF0) == ACK_HANDSHAKE and (w & 0xF) == CLIENT_BIT:
-                self._log(f"client 1 rilevato (0x{w:04X})")
+                self._log(f"client 1 detected (0x{w:04X})")
                 return
             # 0xFFFF = il child non e' ancora in modo multiplay;
             # 0x0000 = ci e' appena entrato. Entrambe sono attese.

@@ -211,6 +211,7 @@ class Pannello:
             "amico": False,
             "club": None,
             "caricato": False,
+            "mb_visto": False,      # the multiboot found a GBA waiting for a program
             "avviso": None,
         }
 
@@ -401,6 +402,8 @@ class Pannello:
                 s["avviso"] = None
 
         elif chi == "multiboot":
+            if "client 1 detected" in testo or "client 1 rilevato" in testo:
+                s["mb_visto"] = True
             if "DONE!" in testo:
                 s["caricato"] = True
                 s["avviso"] = None
@@ -447,8 +450,12 @@ class Pannello:
                 return False, ("mbstub.gba not found: it is the program that "
                                "gets loaded into the GBA")
             self.sintesi["caricato"] = False
+            self.sintesi["mb_visto"] = False
+            # One quick try per launch: Play decides whether to try again
+            # (only when a GBA was found waiting for a program).
             return self.proc["multiboot"].avvia(
                 [py, "-u", os.path.join(QUI, "mb_multi.py"),
+                 "--tentativi", "1", "--detect-s", "3",
                  os.path.abspath(stub)])
 
         if cosa == "gioca":

@@ -1869,6 +1869,13 @@ class Bridge:
             # log e nessuna la gridava. Un contatore che smette di salire e'
             # un guasto quanto uno che non parte mai.
             words = self.usb.deframer.words_rx
+            # The adapter's LED turns green while the GBA is talking (the
+            # firmware's own colour for the link is blue). Resent every 10 s in
+            # case the firmware paints over it.
+            now_led = time.monotonic()
+            if words > 0 and now_led - getattr(self, "_led_at", 0.0) >= 10.0:
+                self._led_at = now_led
+                self.usb.set_led(0, 160, 0)
             prev = getattr(self, "_prev_words_rx", None)
             stalled = getattr(self, "_stalled_prints", 0)
             stalled = stalled + 1 if (prev is not None and words == prev) else 0

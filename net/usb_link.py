@@ -84,6 +84,7 @@ LINK_ST_NOMI = {
 }
 CMD_SET_RAW_TIMING = 0x14   # F-1: [0x14][u32 LE] iterazioni PIO (~540 ns)
 CMD_SET_CABLE_TYPE = 0x15   # F-3: [0x15][u8] 0=auto 1=GBA(SD su GP3) 2=GBC(SD su GP4)
+CMD_SET_LED = 0x42          # [0x42][r][g][b][on]: colour of the adapter's LED (hardware command)
 CMD_HW_REBOOT = 0x43        # F-4: [0x43][0xA5] sys_reboot del Pico (comando hardware,
 REBOOT_MAGIC = 0xA5         #      passa anche a modulo attivo). Firmware >= 2.0.5.
 
@@ -407,6 +408,15 @@ class UsbLink:
         if self._reader2 is not None:
             self._reader2.join(timeout=1.0)
             self._reader2 = None
+
+    def set_led(self, r, g, b):
+        """Best effort: colour of the adapter's LED. Never raises (a failed
+        write only means the LED keeps its colour)."""
+        try:
+            self.dev.write(EP_CMD_OUT, bytes([CMD_SET_LED, r, g, b, 1]))
+            return True
+        except Exception:
+            return False
 
     def reboot_pico(self):
         """F-4: riavvia il Pico. Dopo questa chiamata l'UsbLink e' da buttare
