@@ -208,7 +208,7 @@ class Multiboot:
         if w is None:
             raise MultibootError(
                 f"no response from the GBA within {timeout:.0f} s (phase {fase}). "
-                "Il master ha smesso di clockare, oppure il canale e' caduto.")
+                "The adapter stopped clocking, or the channel dropped.")
         self.recv += 1
         # Su questo progetto chi esegue e chi legge il codice non sono la
         # stessa persona e l'hardware non si puo' guardare: un fallimento che
