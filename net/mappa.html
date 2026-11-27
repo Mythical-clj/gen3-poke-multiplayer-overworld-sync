@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -993,8 +993,8 @@
       npc: {}
     }
   };
-  var lang = "it";
-  try { lang = localStorage.getItem("gen3pm-lang") || localStorage.getItem("passotile-lang") || "it"; } catch (e) { lang = "it"; }
+  var lang = "en";
+  try { lang = localStorage.getItem("gen3pm-lang") || localStorage.getItem("passotile-lang") || "en"; } catch (e) { lang = "en"; }
   function t(k, a) {
     var s = (UI[lang] && UI[lang][k]) || UI.it[k] || k;
     return a === undefined ? s : s.replace("%s", a);

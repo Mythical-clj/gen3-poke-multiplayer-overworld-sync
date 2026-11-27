@@ -70,4 +70,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=client-$(date -u +%Y%m%d-%H%M)
-          gh release create "$TAG" net/dist/gblink.exe net/mbstub.gba --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. mbstub.gba is inside. For the live map, put your mappa folder next to it."
+          gh release create "$TAG" net/dist/gblink.exe net/mbstub.gba --title "Client $TAG" --notes "gblink.exe: a standalone window, no browser and no Python needed. One small window plus a live map in your browser. The multiboot stub and the map data are inside; nothing else to install."

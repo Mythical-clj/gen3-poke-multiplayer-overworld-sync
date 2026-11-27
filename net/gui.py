@@ -297,9 +297,9 @@ class App:
         mdir = find_map_dir()
         if mdir is None:
             messagebox.showinfo("Live map",
-                                "The map pictures are not included in the exe.\n\n"
-                                "Pick the 'mappa' folder (the one with dati.json, made by tools\\gen_mappa.py).\n"
-                                "Or just put that folder next to gblink.exe.")
+                                "The map pictures were not found (they are normally built into gblink.exe).\n\n"
+                                "Pick a 'mappa' folder (the one with dati.json), "
+                                "or put it next to gblink.exe.")
             mdir = self.pick_map()
             if mdir is None:
                 return
