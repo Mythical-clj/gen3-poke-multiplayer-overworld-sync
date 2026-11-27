@@ -65,32 +65,32 @@ def main():
         if proc.poll() is not None:
             raise RuntimeError("il relay e' morto in avvio")
 
-        peers = [udp() for _ in range(5)]
+        peers = [udp() for _ in range(7)]
         for i, s in enumerate(peers, start=1):
             s.sendto(pack(T_HELLO, i, ROOM, 0), relay_addr)
         time.sleep(0.3)
 
         # PASSO 1: i primi quattro si vedono.
         peers[0].sendto(pack(T_EVENT, 1, ROOM, 1, EVENT), relay_addr)
-        for i in (1, 2, 3):
+        for i in (1, 2, 3, 4, 5):
             assert recv_or_none(peers[i]) is not None, (
                 "l'evento di 1 non arriva al peer %d: stanza rotta" % (i + 1))
-        print("PASSO 1: quattro peer in stanza, l'evento di 1 arriva a 2, 3 e 4")
+        print("PASSO 1: sei peer in stanza, l'evento di 1 arriva agli altri cinque")
 
         # PASSO 2: il quinto e' fuori, nei due sensi.
-        assert recv_or_none(peers[4], timeout=0.5) is None, (
-            "il QUINTO peer riceve i broadcast: il tetto non morde")
-        peers[4].sendto(pack(T_EVENT, 5, ROOM, 1, EVENT), relay_addr)
+        assert recv_or_none(peers[6], timeout=0.5) is None, (
+            "il SETTIMO peer riceve i broadcast: il tetto non morde")
+        peers[6].sendto(pack(T_EVENT, 7, ROOM, 1, EVENT), relay_addr)
         assert recv_or_none(peers[0], timeout=0.5) is None, (
             "l'evento del quinto viene inoltrato: il tetto non morde")
         print("PASSO 2: il quinto peer resta fuori, nei due sensi")
 
         # PASSO 3: fuori dalla stanza piena il quinto funziona normalmente.
-        peers[4].sendto(pack(T_HELLO, 5, ROOM2, 0), relay_addr)
+        peers[6].sendto(pack(T_HELLO, 7, ROOM2, 0), relay_addr)
         sesto = udp()
-        sesto.sendto(pack(T_HELLO, 6, ROOM2, 0), relay_addr)
+        sesto.sendto(pack(T_HELLO, 8, ROOM2, 0), relay_addr)
         time.sleep(0.2)
-        peers[4].sendto(pack(T_EVENT, 5, ROOM2, 2, EVENT), relay_addr)
+        peers[6].sendto(pack(T_EVENT, 7, ROOM2, 2, EVENT), relay_addr)
         assert recv_or_none(sesto) is not None, (
             "il quinto peer non funziona nemmeno in una stanza NUOVA")
         print("PASSO 3: nella stanza nuova il quinto peer torna a funzionare")
@@ -109,7 +109,7 @@ def main():
             out = proc.communicate()[0]
 
     if ok:
-        gridi = out.count("PIENA")
+        gridi = out.count("FULL")
         if gridi == 0:
             ok = False
             print("FALLITO: il relay non ha detto PIENA nel log")

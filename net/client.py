@@ -336,8 +336,12 @@ class Bridge:
         # T_BYE -> lo slot torna libero. Il quarto amico in su non ha avatar
         # sul GBA (16 object event per mappa: il tetto sta nel motore) ma
         # resta visibile sulla mappa live.
-        self.peer_slots = {}      # peer_id -> slot avatar 0..2
-        self.slot_free = [0, 1, 2]
+        # FINO A 6 GIOCATORI (2026-11-27): il ROM nativo legge lo slot da tre
+        # bit del type (0..7) e disegna fino a 5 remoti. Sul cavo diretto i
+        # remoti restano al massimo 3: ci pensa il numero di console.
+        self.peer_slots = {}      # peer_id -> slot avatar 0..4
+        self.slot_free = [0, 1, 2, 3, 4]
+        self.far_sent = {}        # peer_id -> ultimo evento di mappa lontana consegnato
         self.slot_pieni_avvisati = set()
         self.slot_scartati = 0    # eventi non consegnati al GBA: niente slot
         self.map_key = None       # mappa del nostro ultimo evento, per il log
@@ -772,6 +776,10 @@ class Bridge:
 
     EV_STEP, EV_SYNC, EV_TURN = 1, 2, 3
     HEAL_MAX = 3
+    # Eventi di chi sta su un'altra mappa: vedi heal_and_deliver.
+    FAR_MAP_FILTER = True
+    FAR_SYNC_S = 3.0
+    far_dropped = 0
     _DIR_DX = {1: 0, 2: 0, 3: -1, 4: 1}   # giu, su, sx, dx (sDirDelta* del payload)
     _DIR_DY = {1: 1, 2: -1, 3: 0, 4: 0}
 
@@ -782,8 +790,8 @@ class Bridge:
     FLAP_S = 60.0
 
     def slot_for(self, peer_id):
-        """Lo slot avatar (0..2) di questo amico presso il NOSTRO GBA, o None
-        se i tre slot sono occupati. L'assegnazione e' locale al ricevente:
+        """Lo slot avatar (0..4) di questo amico presso il NOSTRO GBA, o None
+        se i cinque slot sono occupati. L'assegnazione e' locale al ricevente:
         ognuno numera i propri amici per conto suo, e il numero viaggia solo
         sull'ultimo tratto client -> GBA (nibble alto del type)."""
         slot = self.peer_slots.get(peer_id)
@@ -808,7 +816,7 @@ class Bridge:
                     self.log('friend %d -> avatar slot %d' % (peer_id, slot))
             elif peer_id not in self.slot_pieni_avvisati:
                 self.slot_pieni_avvisati.add(peer_id)
-                self.log('friend %d has NO avatar: 3 friends already on screen (stays on the live map)' % peer_id)
+                self.log('friend %d has NO avatar: 5 friends already on screen (stays on the live map)' % peer_id)
         return slot
 
     def heal_and_deliver(self, peer_id, event):
@@ -852,6 +860,25 @@ class Bridge:
         x, y = struct.unpack_from("<hh", event, 6)
         last = self.peer_pos.get(peer_id)
         self.peer_pos[peer_id] = (map_key, x, y)
+
+        # CHI STA SU UN'ALTRA MAPPA NON SI DISEGNA, E NON SERVE MANDARLO AL GBA
+        # (2026-11-27). Il ROM nativo mostra solo chi e' sulla stessa mappa, e
+        # il filo client->GBA porta ~22 eventi al secondo: con 6 giocatori i
+        # passi di chi e' altrove mangiavano la banda di chi e' qui, e i
+        # passi persi diventano scatti. Al GBA va il cambio di mappa (per
+        # togliere l'avatar) e un battito ogni FAR_SYNC_S; il resto si ferma.
+        # peer_pos resta aggiornato: quando uno dei due cambia mappa, il primo
+        # evento nuovo si ricuce da una posizione vera.
+        if (self.FAR_MAP_FILTER and self.map_key is not None
+                and map_key is not None and map_key != self.map_key):
+            now_far = time.monotonic()
+            if (last is None or last[0] != map_key
+                    or now_far - self.far_sent.get(peer_id, 0.0) >= self.FAR_SYNC_S):
+                self.far_sent[peer_id] = now_far
+                self.deliver(event, slot)
+            else:
+                self.far_dropped += 1
+            return
 
         if last is None or last[0] != map_key:
             self.deliver(event, slot)

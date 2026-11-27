@@ -50,7 +50,10 @@ class BridgeFinto(C.Bridge):
         self.schede = {}          # la squadra nella scheda (2026-10-16): il BYE la toglie
         self.dettagli = {}        # e i suoi dettagli (EV_PARTY)
         self.peer_slots = {}
-        self.slot_free = [0, 1, 2]
+        self.slot_free = [0, 1, 2, 3, 4]
+        self.map_key = None
+        self.far_sent = {}
+        self.far_dropped = 0
         self.slot_pieni_avvisati = set()
         self.slot_scartati = 0
         # campi toccati dal ramo T_BYE di handle_udp
@@ -122,9 +125,9 @@ class TestSlot(unittest.TestCase):
         for e in b2.consegnati:
             self.assertEqual(e[0], EV_STEP | (1 << 4))
 
-    def test_quarto_amico_senza_avatar(self):
+    def test_sesto_amico_senza_avatar(self):
         b = BridgeFinto()
-        for peer in (1, 2, 3):
+        for peer in (1, 2, 3, 5, 8):
             b.heal_and_deliver(peer, evento(EV_SYNC))
         b.consegnati.clear()
         b.heal_and_deliver(4, evento(EV_SYNC))
@@ -153,21 +156,21 @@ class TestSlot(unittest.TestCase):
         self.assertEqual(len(b.consegnati), 1)
         via = b.consegnati[0]
         self.assertEqual(via[0], EV_LEAVE | (1 << 4))   # timbrato slot 1
-        self.assertEqual(b.slot_free, [1, 2])           # lo slot e' tornato
+        self.assertEqual(b.slot_free, [1, 2, 3, 4])           # lo slot e' tornato
         # il prossimo amico lo riprende
         b.heal_and_deliver(9, evento(EV_SYNC))
         self.assertEqual(b.peer_slots[9], 1)
 
     def test_bye_senza_slot_non_consegna(self):
         b = BridgeFinto()
-        for peer in (1, 2, 3):
+        for peer in (1, 2, 3, 4, 5):
             b.heal_and_deliver(peer, evento(EV_SYNC))
-        b.heal_and_deliver(4, evento(EV_SYNC))          # quarto: senza slot
-        b.peer_room[4] = 0x0002
+        b.heal_and_deliver(6, evento(EV_SYNC))          # sesto: senza slot
+        b.peer_room[6] = 0x0002
         b.consegnati.clear()
         import protocol
         b.pending_ping = {}
-        b.handle_udp(protocol.pack(protocol.T_BYE, 4, 7, 0), 0.0)
+        b.handle_udp(protocol.pack(protocol.T_BYE, 6, 7, 0), 0.0)
         self.assertEqual(b.consegnati, [])              # niente VIA di slot 0!
 
     # --- il VA-E-VIENI (2026-08-30) --------------------------------------
@@ -221,6 +224,39 @@ class TestSlot(unittest.TestCase):
         self.assertEqual(b.flap, 11)                    # il primo giro non conta
         righe = [r for r in b.righe if "KEEPS DROPPING" in r]
         self.assertEqual(len(righe), 2)                 # la n. 1 e la n. 10
+
+
+
+
+class TestMappaLontana(unittest.TestCase):
+    """Chi sta su un'altra mappa non intasa il filo verso il GBA."""
+
+    def _ev(self, kind, mappa, x=5, y=6, seq=1):
+        return struct.pack("<BBBBBBhhBB", kind, 1, 0, seq, 0, mappa, x, y, 0, 0)
+
+    def test_passi_lontani_si_fermano_ma_il_cambio_mappa_passa(self):
+        b = BridgeFinto()
+        b.map_key = 2                                   # noi: gruppo 0, mappa 2
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 2))     # stessa mappa: passa
+        self.assertEqual(len(b.consegnati), 1)
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 9, seq=2))   # se ne va: passa (toglie l'avatar)
+        self.assertEqual(len(b.consegnati), 2)
+        for i in range(10):                             # cammina lontano: fermo
+            b.heal_and_deliver(7, self._ev(EV_STEP, 9, x=5 + i, seq=3 + i))
+        self.assertEqual(len(b.consegnati), 2)
+        self.assertEqual(b.far_dropped, 10)
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 2, x=20, seq=40))   # torna da noi
+        self.assertEqual(len(b.consegnati), 3)
+
+    def test_se_cambiamo_mappa_noi_i_loro_eventi_riprendono(self):
+        b = BridgeFinto()
+        b.map_key = 2
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 9))
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 9, seq=2))
+        n = len(b.consegnati)
+        b.map_key = 9                                   # siamo andati da loro
+        b.heal_and_deliver(7, self._ev(EV_SYNC, 9, seq=3))
+        self.assertEqual(len(b.consegnati), n + 1)
 
 
 if __name__ == "__main__":

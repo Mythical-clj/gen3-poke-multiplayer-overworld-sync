@@ -65,6 +65,9 @@ PUBBLICA_S = 15.0
 # Quante stanze al massimo nell'elenco: la risposta deve stare comoda in un
 # datagramma (~60 byte a stanza).
 ELENCO_MAX = 30
+# Giocatori per stanza (spettatori esclusi). Il ROM nativo ne disegna 5 oltre a
+# se stesso; sul cavo diretto il limite e' del cavo (4 console), non di qui.
+MAX_GIOCATORI = 6
 LOOPBACK = ("127.0.0.1", "::1")
 
 # LA CHAT DELLA STANZA (2026-10-11, T_CHAT). Il relay la inoltra a tutta la
@@ -315,11 +318,11 @@ class Relay:
         # secondo rientra come giocatore e occupa un posto. Col conteggio
         # dinamico, appena arriva il WATCH il posto torna libero da solo, e il
         # quinto giocatore vero entra al suo tentativo successivo.
-        if not peer.observer and self.giocatori_in(room_id) >= 4:
+        if not peer.observer and self.giocatori_in(room_id) >= MAX_GIOCATORI:
             if peer.refused_room != room_id:
                 peer.refused_room = room_id
-                self.log("room %d FULL (4 players): peer %d stays out"
-                         % (room_id, peer.peer_id))
+                self.log("room %d FULL (%d players): peer %d stays out"
+                         % (room_id, MAX_GIOCATORI, peer.peer_id))
             return
         peer.refused_room = None
         peer.taken_room = None
@@ -555,7 +558,7 @@ class Relay:
             stanze.append({"stanza": room_id, "giocatori": giocatori,
                            "spettatori": len(self.rooms[room_id]) - giocatori})
         stanze.sort(key=lambda s: (-s["giocatori"], s["stanza"]))
-        return json.dumps({"stanze": stanze[:ELENCO_MAX], "posti": 4},
+        return json.dumps({"stanze": stanze[:ELENCO_MAX], "posti": MAX_GIOCATORI},
                           separators=(",", ":")).encode("utf-8")
 
     def drop(self, peer, reason):
